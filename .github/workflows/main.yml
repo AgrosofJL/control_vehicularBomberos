@@ -20,16 +20,13 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: false
+          cache: true
 
-      - name: Habilitar Web y regenerar soporte
-        run: |
-          flutter config --enable-web
-          flutter create --platforms=web .
-          flutter pub get
+      - name: Instalar dependencias
+        run: flutter pub get
 
       - name: Compilar Web PWA
-        run: flutter build web --release --base-href "/control_vehicularBomberos/" --web-renderer html --no-tree-shake-icons
+        run: flutter build web --release --base-href "/control_vehicularBomberos/" --no-tree-shake-icons
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
