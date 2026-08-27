@@ -25,8 +25,8 @@ jobs:
       - name: Instalar dependencias
         run: flutter pub get
 
-      - name: Compilar Web PWA
-        run: flutter build web --release --base-href "/control_vehicularBomberos/"
+      - name: Compilar Web sin cache agresiva
+        run: flutter build web --release --base-href "/control_vehicularBomberos/" --pwa-strategy=none
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
