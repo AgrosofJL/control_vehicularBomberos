@@ -13,21 +13,24 @@ import 'menu.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // SQLite para Web
   if (kIsWeb) {
     try {
       databaseFactory = databaseFactoryFfiWebNoWebWorker;
-    } catch (e) {
-      debugPrint("Aviso SQLite Web: $e");
-    }
+    } catch (_) {}
   }
 
+  // Inicialización de Supabase con cliente web seguro
   try {
     await Supabase.initialize(
       url: 'https://axmwslbcchqpcglxdzip.supabase.co',
       anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.implicit,
+      ),
     );
   } catch (e) {
-    debugPrint("Aviso Supabase: $e");
+    debugPrint("Aviso inicialización Supabase: $e");
   }
 
   runApp(const MyApp());
@@ -61,15 +64,14 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _evaluarPreferenciaDeSesion();
-    });
+    _evaluarSesion();
   }
 
-  Future<void> _evaluarPreferenciaDeSesion() async {
+  Future<void> _evaluarSesion() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      bool tieneSesionActiva = prefs.getBool('isLoggedIn') ?? false;
+      final bool tieneSesionActiva = prefs.getBool('isLoggedIn') ?? false;
 
       if (!mounted) return;
 
@@ -85,7 +87,6 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
         );
       }
     } catch (e) {
-      debugPrint("Error leyendo SharedPreferences: $e");
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

@@ -26,7 +26,7 @@ jobs:
         run: flutter pub get
 
       - name: Compilar Web PWA
-        run: flutter build web --release --base-href "/Bomberos_Control_Vehicular/" --web-renderer canvaskit
+        run: flutter build web --release --base-href "/control_vehicularBomberos/"
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
