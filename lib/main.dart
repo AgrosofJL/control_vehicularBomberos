@@ -13,24 +13,17 @@ import 'menu.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // SQLite para Web
   if (kIsWeb) {
-    try {
-      databaseFactory = databaseFactoryFfiWebNoWebWorker;
-    } catch (_) {}
+    databaseFactory = databaseFactoryFfiWebNoWebWorker;
   }
 
-  // Inicialización de Supabase con cliente web seguro
   try {
     await Supabase.initialize(
       url: 'https://axmwslbcchqpcglxdzip.supabase.co',
       anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-      authOptions: const FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.implicit,
-      ),
     );
   } catch (e) {
-    debugPrint("Aviso inicialización Supabase: $e");
+    debugPrint("Aviso Supabase: $e");
   }
 
   runApp(const MyApp());
@@ -68,7 +61,6 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
   }
 
   Future<void> _evaluarSesion() async {
-    await Future.delayed(const Duration(milliseconds: 300));
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final bool tieneSesionActiva = prefs.getBool('isLoggedIn') ?? false;
@@ -86,7 +78,7 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
           MaterialPageRoute(builder: (context) => const LogueoPage()),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
