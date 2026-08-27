@@ -10,21 +10,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'loguer.dart'; 
 import 'menu.dart'; 
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // SQLite para entorno Web
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWebNoWebWorker;
   }
 
-  try {
-    await Supabase.initialize(
-      url: 'https://axmwslbcchqpcglxdzip.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-    );
-  } catch (e) {
-    debugPrint("Aviso Supabase: $e");
-  }
+  // Inicialización directa de Supabase
+  await Supabase.initialize(
+    url: 'https://axmwslbcchqpcglxdzip.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+  );
 
   runApp(const MyApp());
 }
