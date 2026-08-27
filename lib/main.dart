@@ -40,33 +40,39 @@ class SplashInitializerPage extends StatefulWidget {
 }
 
 class _SplashInitializerPageState extends State<SplashInitializerPage> {
+  String _estadoCarga = "Iniciando servicios...";
+
   @override
   void initState() {
     super.initState();
-    _iniciarSistema();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _iniciarTodo();
+    });
   }
 
-  Future<void> _iniciarSistema() async {
-    // 1. Configurar SQLite en Web
+  Future<void> _iniciarTodo() async {
+    // 1. Configurar SQLite Web
     if (kIsWeb) {
       try {
         databaseFactory = databaseFactoryFfiWebNoWebWorker;
       } catch (e) {
-        debugPrint("SQLite Web init notice: $e");
+        debugPrint("Notice SQLite: $e");
       }
     }
 
     // 2. Inicializar Supabase
+    setState(() => _estadoCarga = "Conectando con base de datos...");
     try {
       await Supabase.initialize(
         url: 'https://axmwslbcchqpcglxdzip.supabase.co',
         anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
       );
     } catch (e) {
-      debugPrint("Supabase init notice: $e");
+      debugPrint("Notice Supabase: $e");
     }
 
-    // 3. Evaluar sesión activa
+    // 3. Evaluar sesión de usuario
+    setState(() => _estadoCarga = "Comprobando credenciales...");
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;
@@ -105,13 +111,13 @@ class _SplashInitializerPageState extends State<SplashInitializerPage> {
               color: Color(0xFF007AFF),
               strokeWidth: 3,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
             Text(
-              "Iniciando sistema...",
+              _estadoCarga,
               style: GoogleFonts.roboto(
                 fontSize: 13,
                 color: const Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],

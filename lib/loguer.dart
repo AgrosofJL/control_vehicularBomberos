@@ -161,6 +161,7 @@ class _LogueoPageState extends State<LogueoPage> {
     );
   }
 
+  // ESTO LO MODIFIQUE
   Future<void> _intentarIngresar() async {
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
@@ -256,10 +257,12 @@ class _LogueoPageState extends State<LogueoPage> {
     } catch (e) {
       _mostrarError("Error: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-
+  
   void _mostrarError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
