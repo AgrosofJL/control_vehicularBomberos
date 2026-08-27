@@ -20,16 +20,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
 
-      - name: Instalar dependencias
-        run: flutter pub get
-
-      - name: Configurar binarios SQLite Web (WASM)
-        run: dart run sqflite_common_ffi_web:setup
+      - name: Habilitar Web y regenerar soporte
+        run: |
+          flutter config --enable-web
+          flutter create --platforms=web .
+          flutter pub get
 
       - name: Compilar Web PWA
-        run: flutter build web --release --base-href "/Bomberos_Control_Vehicular/"
+        run: flutter build web --release --base-href "/control_vehicularBomberos/" --web-renderer html --no-tree-shake-icons
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
