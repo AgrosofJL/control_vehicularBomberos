@@ -7,23 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'loguer.dart'; 
-import 'menu.dart'; 
+import 'loguer.dart';
+import 'menu.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // SQLite para entorno Web
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWebNoWebWorker;
-  }
-
-  // Inicialización directa de Supabase
-  await Supabase.initialize(
-    url: 'https://axmwslbcchqpcglxdzip.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-  );
-
   runApp(const MyApp());
 }
 
@@ -39,33 +27,53 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
       ),
-      home: const CheckAuthPage(),
+      home: const SplashInitializerPage(),
     );
   }
 }
 
-class CheckAuthPage extends StatefulWidget {
-  const CheckAuthPage({super.key});
+class SplashInitializerPage extends StatefulWidget {
+  const SplashInitializerPage({super.key});
 
   @override
-  State<CheckAuthPage> createState() => _CheckAuthPageState();
+  State<SplashInitializerPage> createState() => _SplashInitializerPageState();
 }
 
-class _CheckAuthPageState extends State<CheckAuthPage> {
+class _SplashInitializerPageState extends State<SplashInitializerPage> {
   @override
   void initState() {
     super.initState();
-    _evaluarSesion();
+    _iniciarSistema();
   }
 
-  Future<void> _evaluarSesion() async {
+  Future<void> _iniciarSistema() async {
+    // 1. Configurar SQLite en Web
+    if (kIsWeb) {
+      try {
+        databaseFactory = databaseFactoryFfiWebNoWebWorker;
+      } catch (e) {
+        debugPrint("SQLite Web init notice: $e");
+      }
+    }
+
+    // 2. Inicializar Supabase
+    try {
+      await Supabase.initialize(
+        url: 'https://axmwslbcchqpcglxdzip.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+      );
+    } catch (e) {
+      debugPrint("Supabase init notice: $e");
+    }
+
+    // 3. Evaluar sesión activa
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final bool tieneSesionActiva = prefs.getBool('isLoggedIn') ?? false;
+      final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;
 
       if (!mounted) return;
 
-      if (tieneSesionActiva) {
+      if (tieneSesion) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MenuPage()),
@@ -76,7 +84,7 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
           MaterialPageRoute(builder: (context) => const LogueoPage()),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -87,12 +95,26 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF4F6F9),
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       body: Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFFFF5A36),
-          strokeWidth: 3,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              color: Color(0xFF007AFF),
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "Iniciando sistema...",
+              style: GoogleFonts.roboto(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
