@@ -1,7 +1,7 @@
 // ESTO LO MODIFIQUE
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart';
 
 class DatabaseHelper {
@@ -19,27 +19,25 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String path;
-
     if (kIsWeb) {
-      // En Web (WASM / IndexedDB) se pasa únicamente el identificador del archivo
-      path = 'checklist_bomberos.db';
+      databaseFactory = databaseFactoryFfiWebNoWebWorker;
+      return await openDatabase(
+        'checklist_bomberos.db',
+        version: 4,
+        onCreate: _onCreate,
+      );
     } else {
-      // En Móvil / Desktop se concatena la ruta interna de almacenamiento
       final databasesPath = await getDatabasesPath();
-      path = join(databasesPath, 'checklist_bomberos.db');
+      final path = join(databasesPath, 'checklist_bomberos.db');
+      return await openDatabase(
+        path,
+        version: 4,
+        onCreate: _onCreate,
+      );
     }
-    
-    return await openDatabase(
-      path,
-      version: 4,
-      onCreate: _onCreate,
-    );
   }
 
-  // --- ACA ES LO NUEVO: Estructura espejo exacta de Supabase ---
   Future<void> _onCreate(Database db, int version) async {
-    // 1. Tabla Usuarios
     await db.execute('''
       CREATE TABLE usuarios (
         id INTEGER PRIMARY KEY,
@@ -52,7 +50,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. Tabla Maquinaria
     await db.execute('''
       CREATE TABLE maquinaria (
         id INTEGER PRIMARY KEY,
@@ -73,7 +70,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. Tabla Personal
     await db.execute('''
       CREATE TABLE personal (
         id INTEGER PRIMARY KEY,
@@ -100,7 +96,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 4. Tabla Ítems de Chequeo
     await db.execute('''
       CREATE TABLE items_chequeo (
         item INTEGER,
@@ -110,7 +105,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 5. Tabla Chequeos Vehicular
     await db.execute('''
       CREATE TABLE chequeos_vehicular (
         id TEXT,
@@ -140,17 +134,13 @@ class DatabaseHelper {
         reg_local TEXT
       )
     ''');
-    
-    debugPrint("✅ Base de datos local inicializada con todas las tablas espejo.");
   }
 
-  // --- Lógica para Max(registro)+1 ---
   Future<int> obtenerSiguienteIdChequeo() async {
     final database = await db;
     final List<Map<String, dynamic>> resultado = await database.rawQuery(
       'SELECT MAX(CAST(id AS INTEGER)) as max_id FROM chequeos_vehicular'
     );
-    
     int maxId = resultado.first['max_id'] ?? 0;
     return maxId + 1;
   }
