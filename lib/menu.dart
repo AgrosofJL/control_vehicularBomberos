@@ -1,13 +1,12 @@
+// ESTO LO MODIFIQUE
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'bajar.dart';
 import 'subir.dart';
-import '../vehiculos/vehiculos.dart';
-import '../vehiculos/chequeos.dart';
-import '../vehiculos/reporte.dart';
-import 'main.dart';
+import 'vehiculos/vehiculos.dart';
+import 'vehiculos/chequeos.dart';
+import 'vehiculos/reporte.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -21,20 +20,17 @@ class _MenuPageState extends State<MenuPage> {
   String _nombreUsuario = 'OPERARIO';
   String _rolUsuario = 'OPERARIO';
 
-  // =====================================================================
-  // ESTO LO MODIFIQUE: Paleta de colores extraída directamente del CSS
-  // =====================================================================
   final Color _colorBg = const Color(0xFFF3F5F1);
   final Color _colorSurface = const Color(0xFFFFFFFF);
   final Color _colorText = const Color(0xFF1B231D);
   final Color _colorTextSecondary = const Color(0xFF5F6B62);
   final Color _colorAccent = const Color(0xFF1E6B4C);
   final Color _colorAccentDark = const Color(0xFF123F2C);
-  final Color _colorAccentSoft = const Color(0x1A1E6B4C); // rgba(30, 107, 76, 0.10)
-  final Color _colorGoldSoft = const Color(0x24B8862A);   // rgba(184, 134, 42, 0.14)
+  final Color _colorAccentSoft = const Color(0x1A1E6B4C);
+  final Color _colorGoldSoft = const Color(0x24B8862A);
   final Color _colorGoldText = const Color(0xFF8A6A1E);
   final Color _colorDanger = const Color(0xFFC0483C);
-  final Color _colorBorder = const Color(0x1A1B231D);     // rgba(27, 35, 29, 0.10)
+  final Color _colorBorder = const Color(0x1A1B231D);
 
   @override
   void initState() {
@@ -50,10 +46,15 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
+  // Formateador sin librerías externas para evitar fallo de 'init' en Safari Web
   String _obtenerFechaFormateada() {
-    DateTime ahora = DateTime.now();
-    String fecha = DateFormat("EEEE dd 'DE' MMMM 'DE' yyyy", "es_AR").format(ahora);
-    return fecha.toUpperCase();
+    final DateTime ahora = DateTime.now();
+    const dias = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+    const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+    
+    final diaSemana = dias[ahora.weekday - 1];
+    final mes = meses[ahora.month - 1];
+    return "$diaSemana ${ahora.day.toString().padLeft(2, '0')} DE $mes DE ${ahora.year}";
   }
 
   Future<void> _sincronizarTodoElSistema() async {
@@ -98,9 +99,6 @@ class _MenuPageState extends State<MenuPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // =====================================================================
-            // ACA ES LO NUEVO: Marca de agua de fondo logo_cuartel.png
-            // =====================================================================
             Center(
               child: Opacity(
                 opacity: 0.08,
@@ -116,12 +114,8 @@ class _MenuPageState extends State<MenuPage> {
                 ),
               ),
             ),
-
             Column(
               children: [
-                // =====================================================================
-                // ACA ES LO NUEVO: Barra superior estilo barra-superior CSS
-                // =====================================================================
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
                   decoration: BoxDecoration(
@@ -138,7 +132,6 @@ class _MenuPageState extends State<MenuPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Marca / Logo 3x3
                       Row(
                         children: [
                           Container(
@@ -162,8 +155,6 @@ class _MenuPageState extends State<MenuPage> {
                           ),
                         ],
                       ),
-
-                      // Botón Sincronizar dinámico (arriba a la derecha)
                       _isSyncing
                           ? SizedBox(
                               width: 22,
@@ -208,10 +199,6 @@ class _MenuPageState extends State<MenuPage> {
                     ],
                   ),
                 ),
-
-                // =====================================================================
-                // ACA ES LO NUEVO: Header con Fecha, Perfil y Rol
-                // =====================================================================
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 18, 24, 6),
                   child: Row(
@@ -260,10 +247,6 @@ class _MenuPageState extends State<MenuPage> {
                     ],
                   ),
                 ),
-
-                // =====================================================================
-                // ESTO LO MODIFIQUE: Grilla de tarjetas con estilo card-modulo del CSS
-                // =====================================================================
                 Expanded(
                   child: GridView.count(
                     crossAxisCount: 2,
@@ -296,7 +279,7 @@ class _MenuPageState extends State<MenuPage> {
                       ),
                       _buildMenuCard(
                         titulo: "EXPORTAR REPORTES",
-                        subtitulo: "Descargar auditorías de control en PDF o Excel",
+                        subtitulo: "Descargar auditorías de control en PDF",
                         icono: Icons.picture_as_pdf_rounded,
                         bgIcono: const Color(0x1F2FB344),
                         colorIcono: const Color(0xFF1E7E34),
@@ -321,7 +304,6 @@ class _MenuPageState extends State<MenuPage> {
                     ],
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
@@ -342,9 +324,6 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  // =====================================================================
-  // ESTO LO MODIFIQUE: Widget Card con feedback visual suave y radios CSS
-  // =====================================================================
   Widget _buildMenuCard({
     required String titulo,
     required String subtitulo,

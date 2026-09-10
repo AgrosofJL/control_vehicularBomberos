@@ -4,10 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'base.dart';
 
 class CargaSincronizada {
-  final _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _dbHelper = DatabaseHelper();
 
-  // --- Sincronización masiva de registros locales hacia la nube sin colisiones ---
   Future<bool> subirChequeosASupabase() async {
     try {
       debugPrint("📤 Preparando subida de auditorías vehiculares a Supabase...");
@@ -30,7 +29,6 @@ class CargaSincronizada {
           'dominio': fila['dominio'],
           'marca': fila['marca'],
           'interno': fila['interno'],
-          // ESTO LO MODIFIQUE: Mapeo exacto respetando la columna con mayúsculas de Postgres
           'fecha_prox_Ser': fila['fecha_prox_Ser'],
           'utilizado_por': fila['utilizado_por'],
           'inspecciono': fila['inspecciono'],
@@ -53,14 +51,11 @@ class CargaSincronizada {
         });
       }
 
-      // =========================================================================
-      // ESTO LO MODIFIQUE: Upsert indexado por clave compuesta compuesto (reg_local, item)
-      // =========================================================================
       await _supabase
           .from('chequeos_vehicular')
           .upsert(loteSubida, onConflict: 'reg_local,item');
 
-      debugPrint("🚀 Sincronización exitosa: ${loteSubida.length} registros impactados en Supabase.");
+      debugPrint("🚀 Sincronización exitosa: ${loteSubida.length} registros impactados.");
       return true;
     } catch (e) {
       debugPrint("❌ Error crítico subiendo datos a Supabase: $e");
