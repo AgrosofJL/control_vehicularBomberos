@@ -17,7 +17,7 @@ void main() async {
       anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
       authOptions: FlutterAuthClientOptions(
         authFlowType: AuthFlowType.implicit,
-        localStorage: kIsWeb ? const EmptyLocalStorage() : const SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
+        localStorage: kIsWeb ? const EmptyLocalStorage() :  SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
       ),
     );
   } catch (e) {
