@@ -1,4 +1,3 @@
-// ESTO LO MODIFIQUE
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,19 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'loguer.dart';
 import 'menu.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicialización directa y segura de Supabase
-  try {
-    await Supabase.initialize(
-      url: 'https://axmwslbcchqpcglxdzip.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-    );
-  } catch (e) {
-    debugPrint("Supabase Init: $e");
-  }
-
   runApp(const MyApp());
 }
 
@@ -36,27 +24,42 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
       ),
-      home: const CheckAuthPage(),
+      home: const SplashInitializerPage(),
     );
   }
 }
 
-class CheckAuthPage extends StatefulWidget {
-  const CheckAuthPage({super.key});
+class SplashInitializerPage extends StatefulWidget {
+  const SplashInitializerPage({super.key});
 
   @override
-  State<CheckAuthPage> createState() => _CheckAuthPageState();
+  State<SplashInitializerPage> createState() => _SplashInitializerPageState();
 }
 
-class _CheckAuthPageState extends State<CheckAuthPage> {
+class _SplashInitializerPageState extends State<SplashInitializerPage> {
   @override
   void initState() {
     super.initState();
-    _evaluarSesion();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _iniciarTodo();
+    });
   }
 
-  Future<void> _evaluarSesion() async {
-    await Future.delayed(const Duration(milliseconds: 150));
+  Future<void> _iniciarTodo() async {
+    // 1. Inicializar Supabase con almacenamiento seguro
+    try {
+      await Supabase.initialize(
+        url: 'https://axmwslbcchqpcglxdzip.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+        ),
+      );
+    } catch (e) {
+      debugPrint("Supabase notice: $e");
+    }
+
+    // 2. Comprobar sesión de usuario
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;
@@ -74,7 +77,7 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
           MaterialPageRoute(builder: (context) => const LogueoPage()),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
