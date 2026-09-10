@@ -1,7 +1,6 @@
 // ESTO LO MODIFIQUE
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart';
 
 class DatabaseHelper {
@@ -13,28 +12,22 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   Future<Database> get db async {
+    if (kIsWeb) {
+      throw UnsupportedError("SQLite local no se utiliza en entorno Web.");
+    }
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    if (kIsWeb) {
-      databaseFactory = databaseFactoryFfiWebNoWebWorker;
-      return await openDatabase(
-        'checklist_bomberos.db',
-        version: 4,
-        onCreate: _onCreate,
-      );
-    } else {
-      final databasesPath = await getDatabasesPath();
-      final path = join(databasesPath, 'checklist_bomberos.db');
-      return await openDatabase(
-        path,
-        version: 4,
-        onCreate: _onCreate,
-      );
-    }
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, 'checklist_bomberos.db');
+    return await openDatabase(
+      path,
+      version: 4,
+      onCreate: _onCreate,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {

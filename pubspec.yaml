@@ -21,7 +21,6 @@ dependencies:
   path: ^1.9.1
   pdf: ^3.12.0
   printing: ^5.14.3
-  sqflite_common_ffi_web: ^0.4.0
   shared_preferences: ^2.2.2
   flutter_launcher_icons: ^0.14.4
 

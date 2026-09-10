@@ -8,8 +8,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'loguer.dart';
 import 'menu.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Supabase.initialize(
+      url: 'https://axmwslbcchqpcglxdzip.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+      authOptions: FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.implicit,
+        localStorage: kIsWeb ? const EmptyLocalStorage() : const SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
+      ),
+    );
+  } catch (e) {
+    debugPrint("Supabase Init: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -25,43 +39,26 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
       ),
-      home: const SplashInitializerPage(),
+      home: const CheckAuthPage(),
     );
   }
 }
 
-class SplashInitializerPage extends StatefulWidget {
-  const SplashInitializerPage({super.key});
+class CheckAuthPage extends StatefulWidget {
+  const CheckAuthPage({super.key});
 
   @override
-  State<SplashInitializerPage> createState() => _SplashInitializerPageState();
+  State<CheckAuthPage> createState() => _CheckAuthPageState();
 }
 
-class _SplashInitializerPageState extends State<SplashInitializerPage> {
+class _CheckAuthPageState extends State<CheckAuthPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _iniciarTodo();
-    });
+    _evaluarSesion();
   }
 
-  Future<void> _iniciarTodo() async {
-    // 1. Inicialización de Supabase con LocalStorage en memoria (inmune a fallos de plugins Web)
-    try {
-      await Supabase.initialize(
-        url: 'https://axmwslbcchqpcglxdzip.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-        authOptions: FlutterAuthClientOptions(
-          authFlowType: AuthFlowType.implicit,
-          localStorage: kIsWeb ? const EmptyLocalStorage() : SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
-        ),
-      );
-    } catch (e) {
-      debugPrint("Supabase Init: $e");
-    }
-
-    // 2. Comprobar sesión de usuario
+  Future<void> _evaluarSesion() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;
