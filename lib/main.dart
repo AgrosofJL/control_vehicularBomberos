@@ -1,3 +1,4 @@
+// ESTO LO MODIFIQUE
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -46,17 +47,18 @@ class _SplashInitializerPageState extends State<SplashInitializerPage> {
   }
 
   Future<void> _iniciarTodo() async {
-    // 1. Inicializar Supabase con almacenamiento seguro
+    // 1. Inicialización de Supabase con LocalStorage en memoria (inmune a fallos de plugins Web)
     try {
       await Supabase.initialize(
         url: 'https://axmwslbcchqpcglxdzip.supabase.co',
         anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-        authOptions: const FlutterAuthClientOptions(
+        authOptions: FlutterAuthClientOptions(
           authFlowType: AuthFlowType.implicit,
+          localStorage: kIsWeb ? const EmptyLocalStorage() : SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
         ),
       );
     } catch (e) {
-      debugPrint("Supabase notice: $e");
+      debugPrint("Supabase Init: $e");
     }
 
     // 2. Comprobar sesión de usuario
@@ -77,7 +79,7 @@ class _SplashInitializerPageState extends State<SplashInitializerPage> {
           MaterialPageRoute(builder: (context) => const LogueoPage()),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
