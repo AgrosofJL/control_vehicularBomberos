@@ -189,58 +189,75 @@ class _LogueoPageState extends State<LogueoPage> {
     );
   }
 
+  // ESTO LO MODIFIQUE
   Future<void> _intentarIngresar() async {
+    if (_correoController.text.trim().isEmpty || _passController.text.trim().isEmpty) {
+      _mostrarError("Completá tu usuario y contraseña");
+      return;
+    }
+
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
     final dbHelper = DatabaseHelper();
+    final String inputUser = _correoController.text.trim();
+    final String inputPass = _passController.text.trim();
 
     try {
+      // 1. Buscar primero en Supabase
       final response = await supabase
           .from('usuarios')
           .select()
-          .eq('correo', _correoController.text.trim())
-          .eq('pass', _passController.text.trim())
+          .or('correo.ilike.$inputUser,operario.ilike.$inputUser')
+          .eq('pass', inputPass)
           .maybeSingle();
 
       if (response != null) {
-        final String dbDevice = (response['device'] ?? '').toString().trim();
         final String dbEstado = (response['estado'] ?? '').toString().toUpperCase();
 
         if (dbEstado != 'ACTIVO') {
+          if (mounted) setState(() => _isLoading = false);
           _mostrarError("Usuario inactivo. Consulte al administrador.");
           return;
         }
 
-        // Control de dispositivo: solo exigido en apps nativas (en Web queda libre)
+        // Control de dispositivo en móviles nativos (se omite en Web)
+        final String dbDevice = (response['device'] ?? '').toString().trim();
         if (!_esWebOEscritorio && dbDevice.isNotEmpty && dbDevice != _deviceIdentifier) {
-          _mostrarError("Hardware no autorizado.");
+          if (mounted) setState(() => _isLoading = false);
+          _mostrarError("Dispositivo móvil no autorizado.");
           return;
         }
 
-        // Respaldo en SQLite local
-        final localDb = await dbHelper.db;
-        await localDb.insert(
-          'usuarios',
-          {
-            'id': response['id'],
-            'correo': response['correo'],
-            'operario': response['operario'],
-            'device': response['device'],
-            'pass': response['pass'],
-            'estado': response['estado'],
-            'rol': response['rol'],
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        // 2. ACA ES LO NUEVO: Insertar en SQLite para permanencia y respaldo offline
+        try {
+          final localDb = await dbHelper.db;
+          await localDb.insert(
+            'usuarios',
+            {
+              'id': int.tryParse(response['id'].toString()) ?? 1,
+              'correo': response['correo'] ?? response['usuario'] ?? inputUser,
+              'operario': response['operario'] ?? 'OPERARIO',
+              'device': response['device'] ?? '',
+              'pass': response['pass'] ?? inputPass,
+              'estado': dbEstado,
+              'rol': response['rol'] ?? 'OPERARIO',
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        } catch (sqliteError) {
+          debugPrint("Aviso al guardar respaldo SQLite: $sqliteError");
+        }
 
-        String rolUsuario = response['rol'] ?? 'OPERARIO';
-        String nombreUsuario = response['operario'] ?? 'OPERARIO';
+        // 3. Guardar sesión permanente en SharedPreferences
+        final String rolUsuario = (response['rol'] ?? 'OPERARIO').toString().toUpperCase();
+        final String nombreUsuario = (response['operario'] ?? 'OPERARIO').toString();
 
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('userNombre', nombreUsuario);
         await prefs.setString('userRol', rolUsuario);
 
+        // 4. Sincronización de catálogos
         await DescargaSincronizada().descargarTodoDesdeSupabase(rol: rolUsuario);
 
         if (mounted) {
@@ -249,11 +266,14 @@ class _LogueoPageState extends State<LogueoPage> {
             MaterialPageRoute(builder: (context) => const MenuPage()),
           );
         }
+        return;
       } else {
-        _mostrarError("Credenciales incorrectas.");
+        // Fallback local: Si Supabase no encuentra o no hay internet, verificar respaldo offline
+        await _intentarLoginOffline(inputUser, inputPass);
       }
     } catch (e) {
-      _mostrarError("Error al iniciar sesión: $e");
+      debugPrint("Fallo al conectar con Supabase, verificando local: $e");
+      await _intentarLoginOffline(inputUser, inputPass);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -261,6 +281,47 @@ class _LogueoPageState extends State<LogueoPage> {
     }
   }
 
+  // ACA ES LO NUEVO: Consulta de respaldo sobre SQLite cuando no hay red
+  Future<void> _intentarLoginOffline(String inputUser, String inputPass) async {
+    try {
+      final dbHelper = DatabaseHelper();
+      final localDb = await dbHelper.db;
+      
+      final List<Map<String, dynamic>> res = await localDb.query(
+        'usuarios',
+        where: '(UPPER(correo) = ? OR UPPER(operario) = ?) AND pass = ?',
+        whereArgs: [inputUser.toUpperCase(), inputUser.toUpperCase(), inputPass],
+      );
+
+      if (res.isNotEmpty) {
+        final usuarioLocal = res.first;
+        final String estadoLocal = (usuarioLocal['estado'] ?? '').toString().toUpperCase();
+
+        if (estadoLocal != 'ACTIVO') {
+          _mostrarError("Usuario inactivo en registro local.");
+          return;
+        }
+
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userNombre', usuarioLocal['operario'] ?? 'OPERARIO');
+        await prefs.setString('userRol', (usuarioLocal['rol'] ?? 'OPERARIO').toString().toUpperCase());
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MenuPage()),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint("Error en validación offline: $e");
+    }
+
+    _mostrarError("Credenciales inválidas o sin acceso.");
+  }
+  
   void _mostrarError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
