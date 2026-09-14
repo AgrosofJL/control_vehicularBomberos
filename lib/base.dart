@@ -12,17 +12,20 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   Future<Database> get db async {
-    if (kIsWeb) {
-      throw UnsupportedError("SQLite local no se utiliza en entorno Web.");
-    }
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    final databasesPath = await getDatabasesPath();
-    final path = join(databasesPath, 'checklist_bomberos.db');
+    String path;
+    if (kIsWeb) {
+      path = 'checklist_bomberos.db';
+    } else {
+      final databasesPath = await getDatabasesPath();
+      path = join(databasesPath, 'checklist_bomberos.db');
+    }
+
     return await openDatabase(
       path,
       version: 4,
@@ -32,7 +35,7 @@ class DatabaseHelper {
 
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE usuarios (
+      CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY,
         operario TEXT,
         correo TEXT,
@@ -44,7 +47,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE maquinaria (
+      CREATE TABLE IF NOT EXISTS maquinaria (
         id INTEGER PRIMARY KEY,
         interno INTEGER,
         marca_modelo TEXT,
@@ -64,7 +67,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE personal (
+      CREATE TABLE IF NOT EXISTS personal (
         id INTEGER PRIMARY KEY,
         nro_legajo INTEGER,
         dni INTEGER,
@@ -90,7 +93,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE items_chequeo (
+      CREATE TABLE IF NOT EXISTS items_chequeo (
         item INTEGER,
         tipo_vehiculo TEXT,
         descripcion TEXT,
@@ -99,7 +102,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE chequeos_vehicular (
+      CREATE TABLE IF NOT EXISTS chequeos_vehicular (
         id TEXT,
         tipo_unidad TEXT,
         unidad TEXT,

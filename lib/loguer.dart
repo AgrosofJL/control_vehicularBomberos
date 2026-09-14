@@ -1,10 +1,13 @@
 // ESTO LO MODIFIQUE
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite/sqlite_api.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import 'base.dart';
 import 'menu.dart';
@@ -21,12 +24,69 @@ class _LogueoPageState extends State<LogueoPage> {
   final TextEditingController _correoController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
   bool _isLoading = false;
+  String _deviceIdentifier = "Obteniendo...";
 
   final Color _bgWhite = const Color(0xFFFFFFFF);
   final Color _inputBackground = const Color(0xFFF1F5F9);
   final Color _appleBlue = const Color(0xFF007AFF);
   final Color _textPrimary = const Color(0xFF0F172A);
   final Color _textSecondary = const Color(0xFF64748B);
+
+  bool get _esWebOEscritorio {
+    if (kIsWeb) return true;
+    return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _obtenerDispositivo();
+    _verificarSesionExistente();
+  }
+
+  Future<void> _obtenerDispositivo() async {
+    if (kIsWeb) {
+      if (!mounted) return;
+      setState(() => _deviceIdentifier = "Navegador Web / PWA");
+      return;
+    }
+
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      if (!mounted) return;
+      setState(() => _deviceIdentifier = "Estación de Trabajo / PC");
+      return;
+    }
+
+    final deviceInfo = DeviceInfoPlugin();
+    String deviceId = "Dispositivo no reconocido";
+
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        deviceId = androidInfo.id;
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor ?? "Dispositivo iOS";
+      }
+    } catch (_) {
+      deviceId = "Dispositivo móvil genérico";
+    }
+
+    if (!mounted) return;
+    setState(() => _deviceIdentifier = deviceId);
+  }
+
+  Future<void> _verificarSesionExistente() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool loggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    if (loggedIn && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MenuPage()),
+      );
+    }
+  }
 
   Future<void> _mostrarModalDevice() async {
     showDialog(
@@ -42,7 +102,7 @@ class _LogueoPageState extends State<LogueoPage> {
             Icon(Icons.phonelink_setup_rounded, color: _appleBlue),
             const SizedBox(width: 10),
             Text(
-              "ACCESO WEB DIRECTO",
+              "ID DEL DISPOSITIVO",
               style: GoogleFonts.roboto(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -56,7 +116,9 @@ class _LogueoPageState extends State<LogueoPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Plataforma Web (Safari / PWA) habilitada para operaciones de campo.",
+              _esWebOEscritorio
+                  ? "Entorno Web / Safari detectado. Acceso libre sin restricción de hardware."
+                  : "Este equipo móvil debe estar registrado en Supabase para operar.",
               style: TextStyle(
                 fontSize: 12,
                 color: _textSecondary,
@@ -74,7 +136,7 @@ class _LogueoPageState extends State<LogueoPage> {
                 border: Border.all(color: _appleBlue.withOpacity(0.15)),
               ),
               child: SelectableText(
-                "DISPOSITIVO WEB AUTORIZADO",
+                _deviceIdentifier,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -97,6 +159,31 @@ class _LogueoPageState extends State<LogueoPage> {
               ),
             ),
           ),
+          if (!_esWebOEscritorio)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _appleBlue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _deviceIdentifier));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("✅ ID COPIADO CORRECTAMENTE"),
+                    backgroundColor: Colors.green,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              child: const Text(
+                "COPIAR ID",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
         ],
       ),
     );
@@ -105,6 +192,7 @@ class _LogueoPageState extends State<LogueoPage> {
   Future<void> _intentarIngresar() async {
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
+    final dbHelper = DatabaseHelper();
 
     try {
       final response = await supabase
@@ -115,51 +203,57 @@ class _LogueoPageState extends State<LogueoPage> {
           .maybeSingle();
 
       if (response != null) {
-        if (!kIsWeb) {
-          final dbHelper = DatabaseHelper();
-          final localDb = await dbHelper.db;
-          await localDb.insert(
-            'usuarios',
-            {
-              'id': response['id'],
-              'correo': response['usuario'] ?? response['correo'],
-              'operario': response['operario'],
-              'device': response['device'],
-              'pass': response['pass'],
-              'estado': response['estado'],
-              'rol': response['rol'],
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
+        final String dbDevice = (response['device'] ?? '').toString().trim();
+        final String dbEstado = (response['estado'] ?? '').toString().toUpperCase();
+
+        if (dbEstado != 'ACTIVO') {
+          _mostrarError("Usuario inactivo. Consulte al administrador.");
+          return;
+        }
+
+        // Control de dispositivo: solo exigido en apps nativas (en Web queda libre)
+        if (!_esWebOEscritorio && dbDevice.isNotEmpty && dbDevice != _deviceIdentifier) {
+          _mostrarError("Hardware no autorizado.");
+          return;
+        }
+
+        // Respaldo en SQLite local
+        final localDb = await dbHelper.db;
+        await localDb.insert(
+          'usuarios',
+          {
+            'id': response['id'],
+            'correo': response['correo'],
+            'operario': response['operario'],
+            'device': response['device'],
+            'pass': response['pass'],
+            'estado': response['estado'],
+            'rol': response['rol'],
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+
+        String rolUsuario = response['rol'] ?? 'OPERARIO';
+        String nombreUsuario = response['operario'] ?? 'OPERARIO';
+
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userNombre', nombreUsuario);
+        await prefs.setString('userRol', rolUsuario);
+
+        await DescargaSincronizada().descargarTodoDesdeSupabase(rol: rolUsuario);
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MenuPage()),
           );
         }
-
-        if (response['estado'] == 'ACTIVO') {
-          String rolUsuario = response['rol'] ?? 'OPERARIO';
-          String nombreUsuario = response['operario'] ?? 'OPERARIO';
-
-          final SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userNombre', nombreUsuario);
-          await prefs.setString('userRol', rolUsuario);
-
-          if (!kIsWeb) {
-            await DescargaSincronizada().descargarTodoDesdeSupabase(rol: rolUsuario);
-          }
-
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const MenuPage()),
-            );
-          }
-        } else {
-          _mostrarError("Usuario inactivo. Consulte al administrador.");
-        }
       } else {
-        _mostrarError("Credenciales inválidas.");
+        _mostrarError("Credenciales incorrectas.");
       }
     } catch (e) {
-      _mostrarError("Error al conectar: $e");
+      _mostrarError("Error al iniciar sesión: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
