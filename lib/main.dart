@@ -10,12 +10,7 @@ import 'menu.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ==========================================
-  // ACA ES LO NUEVO: Anula el fallo de init en web de google_fonts
-  // ==========================================
   GoogleFonts.config.allowRuntimeFetching = false;
-  
   runApp(const MyApp());
 }
 
