@@ -8,22 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'loguer.dart';
 import 'menu.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  try {
-    await Supabase.initialize(
-      url: 'https://axmwslbcchqpcglxdzip.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
-      authOptions: FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.implicit,
-        localStorage: kIsWeb ? const EmptyLocalStorage() :  SharedPreferencesLocalStorage(persistSessionKey: 'sb_session'),
-      ),
-    );
-  } catch (e) {
-    debugPrint("Supabase Init: $e");
-  }
-
   runApp(const MyApp());
 }
 
@@ -55,10 +41,27 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
   @override
   void initState() {
     super.initState();
-    _evaluarSesion();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _inicializarYRedirigir();
+    });
   }
 
-  Future<void> _evaluarSesion() async {
+  Future<void> _inicializarYRedirigir() async {
+    // 1. Inicializar Supabase sólo después de que el DOM ya cargó
+    try {
+      await Supabase.initialize(
+        url: 'https://axmwslbcchqpcglxdzip.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bXdzbGJjY2hxcGNnbHhkemlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTIwNTksImV4cCI6MjA5Njg2ODA1OX0.m6m88jGRGwsb81glmyvmVkDM3cfROdVZ4EmgobPy5Xo',
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+          localStorage: EmptyLocalStorage(),
+        ),
+      );
+    } catch (e) {
+      debugPrint("Supabase Init Notice: $e");
+    }
+
+    // 2. Evaluar sesión de usuario
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;
