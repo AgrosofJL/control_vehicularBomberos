@@ -6,7 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite/sqlite_api.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+
+import 'package:device_info_plus/device_info_plus.dart' if (dart.library.js_interop) 'base.dart';
 
 import 'base.dart';
 import 'menu.dart';
@@ -32,7 +33,7 @@ class _LogueoPageState extends State<LogueoPage> {
   final Color _textSecondary = const Color(0xFF64748B);
 
   Future<String> _obtenerUUIDDispositivo() async {
-    if (kIsWeb) return "";
+    if (kIsWeb) return "WEB_SESSION";
     String deviceId = "";
     try {
       final deviceInfo = DeviceInfoPlugin();
