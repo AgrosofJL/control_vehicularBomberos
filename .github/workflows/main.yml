@@ -26,7 +26,7 @@ jobs:
         run: flutter pub get
 
       - name: Compilar Web Release
-        run: flutter build web --release --base-href "/control_vehicularBomberos/" --no-tree-shake-icons --web-renderer canvaskit
+        run: flutter build web --release --base-href "/control_vehicularBomberos/" --no-tree-shake-icons
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
