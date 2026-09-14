@@ -20,13 +20,13 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
 
       - name: Instalar dependencias
         run: flutter pub get
 
-      - name: Compilar Web PWA
-        run: flutter build web --release --base-href "/control_vehicularBomberos/" --no-tree-shake-icons
+      - name: Compilar Web Release
+        run: flutter build web --release --base-href "/control_vehicularBomberos/" --no-tree-shake-icons --web-renderer canvaskit
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

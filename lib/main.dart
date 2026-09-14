@@ -10,6 +10,12 @@ import 'menu.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ==========================================
+  // ACA ES LO NUEVO: Anula el fallo de init en web de google_fonts
+  // ==========================================
+  GoogleFonts.config.allowRuntimeFetching = false;
+  
   runApp(const MyApp());
 }
 
@@ -22,32 +28,31 @@ class MyApp extends StatelessWidget {
       title: 'Checklist Vehicular',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
+        fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const CheckAuthPage(),
+      home: const SplashInitializerPage(),
     );
   }
 }
 
-class CheckAuthPage extends StatefulWidget {
-  const CheckAuthPage({super.key});
+class SplashInitializerPage extends StatefulWidget {
+  const SplashInitializerPage({super.key});
 
   @override
-  State<CheckAuthPage> createState() => _CheckAuthPageState();
+  State<SplashInitializerPage> createState() => _SplashInitializerPageState();
 }
 
-class _CheckAuthPageState extends State<CheckAuthPage> {
+class _SplashInitializerPageState extends State<SplashInitializerPage> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _inicializarYRedirigir();
+      _arrancar();
     });
   }
 
-  Future<void> _inicializarYRedirigir() async {
-    // 1. Inicializar Supabase sólo después de que el DOM ya cargó
+  Future<void> _arrancar() async {
     try {
       await Supabase.initialize(
         url: 'https://axmwslbcchqpcglxdzip.supabase.co',
@@ -58,10 +63,9 @@ class _CheckAuthPageState extends State<CheckAuthPage> {
         ),
       );
     } catch (e) {
-      debugPrint("Supabase Init Notice: $e");
+      debugPrint("Supabase notice: $e");
     }
 
-    // 2. Evaluar sesión de usuario
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool tieneSesion = prefs.getBool('isLoggedIn') ?? false;

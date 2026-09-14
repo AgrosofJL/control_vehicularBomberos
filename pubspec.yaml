@@ -10,9 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  
+
   # ==========================================
-  # ACA ES LO NUEVO
+  # ACA ES LO NUEVO: Dependencias estables Web
   # ==========================================
   supabase_flutter: ^2.8.0
   intl: ^0.19.0
@@ -37,9 +37,8 @@ flutter_launcher_icons:
   adaptive_icon_background: "#F5F5F7"
   adaptive_icon_foreground: "assets/icono.png"
 
-
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo/  # El archivo SQLite que armás desde afuera con el DB Browser
+    - assets/logo/
     - assets/catalogo/
