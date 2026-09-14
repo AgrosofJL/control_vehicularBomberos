@@ -1,13 +1,10 @@
 // ESTO LO MODIFIQUE
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite/sqlite_api.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:device_info_plus/device_info_plus.dart' if (dart.library.js_interop) 'base.dart';
 
 import 'base.dart';
 import 'menu.dart';
@@ -25,38 +22,13 @@ class _LogueoPageState extends State<LogueoPage> {
   final TextEditingController _passController = TextEditingController();
   bool _isLoading = false;
 
-  // --- TONOS APPLE BLANCO PURO CON BOTONES EN AZUL ---
   final Color _bgWhite = const Color(0xFFFFFFFF);
   final Color _inputBackground = const Color(0xFFF1F5F9);
   final Color _appleBlue = const Color(0xFF007AFF);
   final Color _textPrimary = const Color(0xFF0F172A);
   final Color _textSecondary = const Color(0xFF64748B);
 
-  Future<String> _obtenerUUIDDispositivo() async {
-    if (kIsWeb) return "WEB_SESSION";
-    String deviceId = "";
-    try {
-      final deviceInfo = DeviceInfoPlugin();
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        deviceId = androidInfo.id;
-      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        deviceId = iosInfo.identifierForVendor ?? "";
-      }
-    } catch (e) {
-      debugPrint("Error ID Dispositivo: $e");
-    }
-    return deviceId;
-  }
-
   Future<void> _mostrarModalDevice() async {
-    setState(() => _isLoading = true);
-    String idEquipo = await _obtenerUUIDDispositivo();
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -70,7 +42,7 @@ class _LogueoPageState extends State<LogueoPage> {
             Icon(Icons.phonelink_setup_rounded, color: _appleBlue),
             const SizedBox(width: 10),
             Text(
-              "ID DEL DISPOSITIVO",
+              "ACCESO WEB DIRECTO",
               style: GoogleFonts.roboto(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -84,9 +56,7 @@ class _LogueoPageState extends State<LogueoPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              kIsWeb
-                  ? "Entorno Web Detectado."
-                  : "Este equipo debe estar registrado en Supabase para operar.",
+              "Plataforma Web (Safari / PWA) habilitada para operaciones de campo.",
               style: TextStyle(
                 fontSize: 12,
                 color: _textSecondary,
@@ -104,9 +74,7 @@ class _LogueoPageState extends State<LogueoPage> {
                 border: Border.all(color: _appleBlue.withOpacity(0.15)),
               ),
               child: SelectableText(
-                kIsWeb
-                    ? "ENTORNO WEB (PWA)"
-                    : (idEquipo.isEmpty ? "No detectado" : idEquipo),
+                "DISPOSITIVO WEB AUTORIZADO",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -129,61 +97,26 @@ class _LogueoPageState extends State<LogueoPage> {
               ),
             ),
           ),
-          if (!kIsWeb)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _appleBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: idEquipo));
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("✅ ID COPIADO CORRECTAMENTE"),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text(
-                "COPIAR ID",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  // ESTO LO MODIFIQUE
   Future<void> _intentarIngresar() async {
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
-    final dbHelper = DatabaseHelper();
-    String deviceId = await _obtenerUUIDDispositivo();
 
     try {
-      var query = supabase
+      final response = await supabase
           .from('usuarios')
           .select()
           .eq('correo', _correoController.text.trim())
-          .eq('pass', _passController.text.trim());
-
-      if (deviceId.isNotEmpty) {
-        query = query.eq('device', deviceId);
-      }
-
-      final response = await query.maybeSingle();
+          .eq('pass', _passController.text.trim())
+          .maybeSingle();
 
       if (response != null) {
         if (!kIsWeb) {
+          final dbHelper = DatabaseHelper();
           final localDb = await dbHelper.db;
           await localDb.insert(
             'usuarios',
@@ -223,47 +156,17 @@ class _LogueoPageState extends State<LogueoPage> {
           _mostrarError("Usuario inactivo. Consulte al administrador.");
         }
       } else {
-        if (!kIsWeb) {
-          String whereClause = 'correo = ? AND pass = ?';
-          List<dynamic> whereArgs = [
-            _correoController.text.trim(),
-            _passController.text.trim(),
-          ];
-          if (deviceId.isNotEmpty) {
-            whereClause += ' AND device = ?';
-            whereArgs.add(deviceId);
-          }
-
-          final localUser = await dbHelper.db.then(
-            (db) => db.query('usuarios', where: whereClause, whereArgs: whereArgs),
-          );
-
-          if (localUser.isNotEmpty && localUser.first['estado'] == 'ACTIVO') {
-            final SharedPreferences prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('isLoggedIn', true);
-            await prefs.setString('userNombre', (localUser.first['operario'] ?? 'OPERARIO').toString());
-            await prefs.setString('userRol', (localUser.first['rol'] ?? 'OPERARIO').toString());
-
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const MenuPage()),
-              );
-            }
-            return;
-          }
-        }
-        _mostrarError("Credenciales inválidas o hardware no autorizado.");
+        _mostrarError("Credenciales inválidas.");
       }
     } catch (e) {
-      _mostrarError("Error: $e");
+      _mostrarError("Error al conectar: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-  
+
   void _mostrarError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -284,7 +187,6 @@ class _LogueoPageState extends State<LogueoPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Mini Logo
             Positioned(
               top: 20,
               left: 20,
@@ -298,8 +200,6 @@ class _LogueoPageState extends State<LogueoPage> {
                 ),
               ),
             ),
-
-            // Formulario Central
             Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 35.0, vertical: 20.0),
