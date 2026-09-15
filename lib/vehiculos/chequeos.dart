@@ -2,9 +2,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../base.dart'; 
+import '../base.dart';
 
 class ChequeosPage extends StatefulWidget {
   final Map<String, dynamic>? vehiculoSeleccionado;
@@ -37,34 +37,36 @@ class _ChequeosPageState extends State<ChequeosPage> {
 
   final TextEditingController _observacionesController = TextEditingController();
   final List<Offset> _visualPoints = [];
-  final double _imagenAlto = 160.0;
+  final double _imagenAlto = 150.0;
 
-  String _tipoUnidad = 'OTROS'; 
+  String _tipoUnidad = 'OTROS';
   bool _isLoading = false;
   bool _vieneDesdeInventario = false;
-  
+
   List<Map<String, dynamic>> _listaVehiculosDropdown = [];
   String? _vehiculoElegidoInterno;
 
   List<Map<String, dynamic>> _listaPersonalDropdown = [];
-  String? _conductorSeleccionado; 
+  String? _conductorSeleccionado;
 
-  final Color _colorBg = const Color(0xFFF3F5F1);
+  // ===========================================================================
+  // PALETA INSTITUCIONAL APPLE SOFT
+  // ===========================================================================
+  final Color _colorBg = const Color(0xFFF4F5F7);
   final Color _colorSurface = const Color(0xFFFFFFFF);
   final Color _colorText = const Color(0xFF1B231D);
-  final Color _colorTextSecondary = const Color(0xFF5F6B62);
+  final Color _colorTextSecondary = const Color(0xFF6B7280);
   final Color _colorAccent = const Color(0xFF1E6B4C);
   final Color _colorAccentDark = const Color(0xFF123F2C);
-  final Color _colorAccentSoft = const Color(0x1A1E6B4C);
-  final Color _colorGoldSoft = const Color(0x24B8862A);
+  final Color _colorAccentSoft = const Color(0x141E6B4C);
+  final Color _colorGoldSoft = const Color(0x1EB8862A);
   final Color _colorGoldText = const Color(0xFF8A6A1E);
   final Color _colorDanger = const Color(0xFFC0483C);
-  final Color _colorBorder = const Color(0x1A1B231D);
+  final Color _colorBorder = const Color(0x1A000000);
   final Color _colorSuccess = const Color(0xFF2FB344);
-  final Color _colorSuccessSoft = const Color(0x1F2FB344);
 
   final List<String> _referencias = ['B', 'R', 'RV', 'C', 'NA', 'O', 'F'];
-  final Map<int, Map<String, dynamic>> _respuestasItems = {}; 
+  final Map<int, Map<String, dynamic>> _respuestasItems = {};
   List<Map<String, dynamic>> _itemsMaestros = [];
 
   final Map<String, String> _guiaReferencias = {
@@ -87,9 +89,9 @@ class _ChequeosPageState extends State<ChequeosPage> {
   Future<void> _cargarTodoElContenido() async {
     setState(() => _isLoading = true);
     await _cargarUnidadesExistentes();
-    await _cargarItemsDesdeBD(); 
-    await _cargarPersonal(); 
-    await _autocompletarUsuarioLogueado(); 
+    await _cargarItemsDesdeBD();
+    await _cargarPersonal();
+    await _autocompletarUsuarioLogueado();
     setState(() => _isLoading = false);
   }
 
@@ -125,28 +127,39 @@ class _ChequeosPageState extends State<ChequeosPage> {
         res = await db.rawQuery('''
           SELECT interno, marca_modelo, dominio_patente, tipo, estado FROM maquinaria 
           WHERE UPPER(estado) IN ('OPERATIVO', 'ACTIVO', 'HABILITADO') OR estado IS NULL OR estado = ''
-        '''); 
+        ''');
       }
-      
+
       setState(() {
         final seen = <String>{};
         _listaVehiculosDropdown = res.where((v) {
           final String intStr = (v['interno'] ?? '').toString();
           return intStr.isNotEmpty && seen.add(intStr);
         }).toList();
-        
+
         if (widget.vehiculoSeleccionado != null) {
-          final String internoBuscado = (widget.vehiculoSeleccionado!['interno'] ?? '').toString();
-          bool existeEnCatalogo = _listaVehiculosDropdown.any((v) => (v['interno'] ?? '').toString() == internoBuscado);
+          final String internoBuscado =
+              (widget.vehiculoSeleccionado!['interno'] ?? '').toString();
+          bool existeEnCatalogo = _listaVehiculosDropdown
+              .any((v) => (v['interno'] ?? '').toString() == internoBuscado);
 
           if (existeEnCatalogo) {
             _vehiculoElegidoInterno = internoBuscado;
-            final maestro = _listaVehiculosDropdown.firstWhere((v) => (v['interno'] ?? '').toString() == internoBuscado);
+            final maestro = _listaVehiculosDropdown.firstWhere(
+                (v) => (v['interno'] ?? '').toString() == internoBuscado);
             _internoController.text = (maestro['interno'] ?? '').toString();
-            _dominioController.text = (maestro['dominio_patente'] ?? maestro['dominio'] ?? '').toString();
-            _marcaController.text = (maestro['marca_modelo'] ?? maestro['marca'] ?? '').toString();
-            _unidadController.text = (maestro['tipo'] ?? maestro['tipo_unidad'] ?? '').toString();
-            _tipoUnidad = ((maestro['tipo'] ?? maestro['tipo_unidad'] ?? '').toString().toUpperCase() == 'PESADO') ? 'PESADO' : 'OTROS';
+            _dominioController.text =
+                (maestro['dominio_patente'] ?? maestro['dominio'] ?? '').toString();
+            _marcaController.text =
+                (maestro['marca_modelo'] ?? maestro['marca'] ?? '').toString();
+            _unidadController.text =
+                (maestro['tipo'] ?? maestro['tipo_unidad'] ?? '').toString();
+            _tipoUnidad = ((maestro['tipo'] ?? maestro['tipo_unidad'] ?? '')
+                        .toString()
+                        .toUpperCase() ==
+                    'PESADO')
+                ? 'PESADO'
+                : 'OTROS';
           }
         }
       });
@@ -159,7 +172,10 @@ class _ChequeosPageState extends State<ChequeosPage> {
     try {
       List<Map<String, dynamic>> res = [];
       if (kIsWeb) {
-        res = await Supabase.instance.client.from('items_chequeo').select().order('item', ascending: true);
+        res = await Supabase.instance.client
+            .from('items_chequeo')
+            .select()
+            .order('item', ascending: true);
       } else {
         final db = await _dbHelper.db;
         res = await db.rawQuery('''
@@ -169,13 +185,15 @@ class _ChequeosPageState extends State<ChequeosPage> {
           ORDER BY item ASC
         ''');
       }
-      
+
       setState(() {
         _itemsMaestros = res.map((row) => {
-          'id': row['item'] is int ? row['item'] : int.tryParse(row['item'].toString()) ?? 0,
-          'desc': row['descripcion'] ?? '',
-          'tipo': row['tipo_vehiculo'] ?? '',
-        }).toList();
+              'id': row['item'] is int
+                  ? row['item']
+                  : int.tryParse(row['item'].toString()) ?? 0,
+              'desc': row['descripcion'] ?? '',
+              'tipo': row['tipo_vehiculo'] ?? '',
+            }).toList();
 
         for (var item in _itemsMaestros) {
           _respuestasItems[item['id']] = {'estado': null, 'control': ''};
@@ -191,16 +209,25 @@ class _ChequeosPageState extends State<ChequeosPage> {
       _vieneDesdeInventario = true;
       final v = widget.vehiculoSeleccionado!;
       _internoController.text = (v['interno'] ?? '').toString();
-      _dominioController.text = (v['dominio'] ?? v['dominio_patente'] ?? '').toString();
-      _marcaController.text = (v['marca'] ?? v['marca_modelo'] ?? '').toString();
-      _unidadController.text = (v['unidad'] ?? v['tipo'] ?? v['tipo_unidad'] ?? '').toString();
-      _tipoUnidad = ((v['tipo_unidad'] ?? v['tipo'] ?? '').toString().toUpperCase() == 'PESADO') ? 'PESADO' : 'OTROS';
+      _dominioController.text =
+          (v['dominio'] ?? v['dominio_patente'] ?? '').toString();
+      _marcaController.text =
+          (v['marca'] ?? v['marca_modelo'] ?? '').toString();
+      _unidadController.text =
+          (v['unidad'] ?? v['tipo'] ?? v['tipo_unidad'] ?? '').toString();
+      _tipoUnidad = ((v['tipo_unidad'] ?? v['tipo'] ?? '')
+                  .toString()
+                  .toUpperCase() ==
+              'PESADO')
+          ? 'PESADO'
+          : 'OTROS';
     }
   }
 
+  // ACA ES LO NUEVO: Guardado protegido en Supabase para Web y en SQLite para móvil
   Future<void> _guardarChecklistLocal() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     final itemsFiltrados = _itemsMaestros.where((element) {
       if (_tipoUnidad == 'PESADO') return true;
       return element['tipo'] != 'PESADO';
@@ -217,7 +244,7 @@ class _ChequeosPageState extends State<ChequeosPage> {
             backgroundColor: _colorDanger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          )
+          ),
         );
         return;
       }
@@ -229,7 +256,9 @@ class _ChequeosPageState extends State<ChequeosPage> {
       String stringId = DateTime.now().millisecondsSinceEpoch.toString();
       String fechaActual = DateTime.now().toString().substring(0, 10);
       String regLocalClave = "REG_LOC_${DateTime.now().millisecondsSinceEpoch}";
-      String visualMapSerializado = _visualPoints.map((p) => '${p.dx.toStringAsFixed(3)},${p.dy.toStringAsFixed(3)}').join(';');
+      String visualMapSerializado = _visualPoints
+          .map((p) => '${p.dx.toStringAsFixed(3)},${p.dy.toStringAsFixed(3)}')
+          .join(';');
       String observacionesTexto = _observacionesController.text.trim();
 
       List<Map<String, dynamic>> registros = [];
@@ -238,14 +267,14 @@ class _ChequeosPageState extends State<ChequeosPage> {
         registros.add({
           'id': stringId,
           'tipo_unidad': _tipoUnidad,
-          'unidad': _unidadController.text.trim(), 
-          'dominio': _dominioController.text.trim().toUpperCase(),   
-          'marca': _marcaController.text.trim().toUpperCase(), 
+          'unidad': _unidadController.text.trim(),
+          'dominio': _dominioController.text.trim().toUpperCase(),
+          'marca': _marcaController.text.trim().toUpperCase(),
           'interno': _internoController.text.trim(),
           'fecha_prox_Ser': _fechaProxServiceController.text.trim(),
-          'utilizado_por': _conductorSeleccionado ?? '', 
+          'utilizado_por': _conductorSeleccionado ?? '',
           'inspecciono': _inspeccionoController.text.trim(),
-          'tarjeta_verde': _tarjetaVerde, 
+          'tarjeta_verde': _tarjetaVerde,
           'comprobante_patente': _comprobantePatente,
           'obra_base': _obraBaseController.text.trim(),
           'comprobante_seguro': _comprobanteSeguro,
@@ -253,11 +282,11 @@ class _ChequeosPageState extends State<ChequeosPage> {
           'verificacion_tec': _verificacionTec,
           'doc_chofer': _docChofer,
           'item': item['desc'],
-          'estado': resp['estado'], 
-          'control': resp['control'], 
+          'estado': resp['estado'],
+          'control': resp['control'],
           'fecha': fechaActual,
           'verifico': _inspeccionoController.text.trim(),
-          'fecha_vto': _fechaVtoMatafuegoController.text.trim(), 
+          'fecha_vto': _fechaVtoMatafuegoController.text.trim(),
           'reg_local': regLocalClave,
           'visual_map': visualMapSerializado,
           'observaciones': observacionesTexto,
@@ -265,15 +294,12 @@ class _ChequeosPageState extends State<ChequeosPage> {
       }
 
       if (kIsWeb) {
-        // En Safari Web se impacta directo en Supabase para evitar fallas con Workers
         await Supabase.instance.client.from('chequeos_vehicular').insert(registros);
       } else {
         final localDb = await _dbHelper.db;
-        await localDb.transaction((txn) async {
-          for (var reg in registros) {
-            await txn.insert('chequeos_vehicular', reg);
-          }
-        });
+        for (var reg in registros) {
+          await localDb.insert('chequeos_vehicular', reg);
+        }
       }
 
       setState(() => _isLoading = false);
@@ -306,22 +332,30 @@ class _ChequeosPageState extends State<ChequeosPage> {
     }
   }
 
+  // Tarjeta de resumen de unidad estilo Apple
   Widget _buildFichaResumenUnidad() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _colorSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _colorBorder, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: _colorAccentSoft,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(Icons.fire_truck_rounded, color: _colorAccentDark, size: 24),
           ),
@@ -336,13 +370,13 @@ class _ChequeosPageState extends State<ChequeosPage> {
                       "MÓVIL INT ${_internoController.text}",
                       style: GoogleFonts.roboto(
                         color: _colorText,
-                        fontSize: 13,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: _colorGoldSoft,
                         borderRadius: BorderRadius.circular(6),
@@ -360,7 +394,7 @@ class _ChequeosPageState extends State<ChequeosPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  "${_marcaController.text} • ${_unidadController.text} | PATENTE: ${_dominioController.text}",
+                  "${_marcaController.text} • PATENTE: ${_dominioController.text}",
                   style: GoogleFonts.roboto(
                     color: _colorTextSecondary,
                     fontSize: 11,
@@ -370,7 +404,7 @@ class _ChequeosPageState extends State<ChequeosPage> {
               ],
             ),
           ),
-          Icon(Icons.lock_outline_rounded, color: _colorTextSecondary.withOpacity(0.4), size: 18),
+          Icon(Icons.lock_rounded, color: _colorTextSecondary.withOpacity(0.35), size: 18),
         ],
       ),
     );
@@ -378,10 +412,10 @@ class _ChequeosPageState extends State<ChequeosPage> {
 
   Widget _buildCuadroReferencias() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _colorSurface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _colorBorder, width: 1.0),
       ),
       child: Column(
@@ -389,10 +423,10 @@ class _ChequeosPageState extends State<ChequeosPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline_rounded, size: 14, color: _colorTextSecondary),
+              Icon(Icons.info_outline_rounded, size: 14, color: _colorAccent),
               const SizedBox(width: 6),
               Text(
-                "GUÍA DE REFERENCIAS",
+                "GUÍA DE ESTADOS",
                 style: GoogleFonts.roboto(
                   color: _colorTextSecondary,
                   fontSize: 10,
@@ -402,7 +436,7 @@ class _ChequeosPageState extends State<ChequeosPage> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -458,11 +492,11 @@ class _ChequeosPageState extends State<ChequeosPage> {
                   backgroundColor: _colorSurface,
                   elevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.close_rounded, color: _colorText, size: 24),
+                    icon: Icon(Icons.close_rounded, color: _colorText, size: 22),
                     onPressed: () => Navigator.pop(modalContext),
                   ),
                   title: Text(
-                    "MAPA DE DAÑOS",
+                    "REGISTRO DE DAÑOS Y NOVEDADES",
                     style: GoogleFonts.roboto(
                       color: _colorText,
                       fontSize: 13,
@@ -477,8 +511,15 @@ class _ChequeosPageState extends State<ChequeosPage> {
                           setState(() {});
                         }
                       },
-                      icon: Icon(Icons.undo_rounded, size: 18, color: _colorTextSecondary),
-                      label: Text("DESHACER", style: GoogleFonts.roboto(color: _colorTextSecondary, fontWeight: FontWeight.w700, fontSize: 11)),
+                      icon: Icon(Icons.undo_rounded, size: 16, color: _colorTextSecondary),
+                      label: Text(
+                        "DESHACER",
+                        style: GoogleFonts.roboto(
+                          color: _colorTextSecondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     TextButton.icon(
                       onPressed: () {
@@ -487,8 +528,15 @@ class _ChequeosPageState extends State<ChequeosPage> {
                           setState(() {});
                         }
                       },
-                      icon: Icon(Icons.delete_sweep_rounded, size: 18, color: _colorDanger),
-                      label: Text("LIMPIAR", style: GoogleFonts.roboto(color: _colorDanger, fontWeight: FontWeight.w700, fontSize: 11)),
+                      icon: Icon(Icons.delete_sweep_rounded, size: 16, color: _colorDanger),
+                      label: Text(
+                        "LIMPIAR",
+                        style: GoogleFonts.roboto(
+                          color: _colorDanger,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -509,7 +557,7 @@ class _ChequeosPageState extends State<ChequeosPage> {
                               decoration: BoxDecoration(
                                 color: _colorSurface,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: _colorBorder, width: 1.5),
+                                border: Border.all(color: _colorBorder, width: 1.2),
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(20),
@@ -532,7 +580,13 @@ class _ChequeosPageState extends State<ChequeosPage> {
                                             'assets/catalogo/catalogo.png',
                                             fit: BoxFit.contain,
                                             errorBuilder: (c, e, s) => Center(
-                                              child: Text("PLANO NO DISPONIBLE", style: GoogleFonts.roboto(color: _colorTextSecondary)),
+                                              child: Text(
+                                                "PLANO INSTITUCIONAL",
+                                                style: GoogleFonts.roboto(
+                                                  color: _colorTextSecondary,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -549,6 +603,12 @@ class _ChequeosPageState extends State<ChequeosPage> {
                                             color: _colorDanger.withOpacity(0.9),
                                             shape: BoxShape.circle,
                                             border: Border.all(color: Colors.white, width: 2.0),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.2),
+                                                blurRadius: 4,
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       );
@@ -570,7 +630,14 @@ class _ChequeosPageState extends State<ChequeosPage> {
                           minimumSize: const Size(double.infinity, 50),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        child: Text("LISTO (${_visualPoints.length} MARCAS)", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          "CONFIRMAR (${_visualPoints.length} MARCAS)",
+                          style: GoogleFonts.roboto(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -594,11 +661,18 @@ class _ChequeosPageState extends State<ChequeosPage> {
             TextButton.icon(
               onPressed: _abrirModalPlanoExpandido,
               icon: Icon(Icons.fullscreen_rounded, size: 16, color: _colorAccentDark),
-              label: Text("EXPANDIR", style: GoogleFonts.roboto(color: _colorAccentDark, fontSize: 11, fontWeight: FontWeight.w800)),
+              label: Text(
+                "AMPLIAR",
+                style: GoogleFonts.roboto(
+                  color: _colorAccentDark,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, constraints) {
             final double widthCelular = constraints.maxWidth;
@@ -608,11 +682,11 @@ class _ChequeosPageState extends State<ChequeosPage> {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: _colorSurface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: _colorBorder, width: 1.2),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 child: Stack(
                   children: [
                     Positioned.fill(
@@ -632,8 +706,12 @@ class _ChequeosPageState extends State<ChequeosPage> {
                             fit: BoxFit.contain,
                             errorBuilder: (c, e, s) => Center(
                               child: Text(
-                                "PLANO NO DISPONIBLE",
-                                style: GoogleFonts.roboto(color: _colorTextSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                                "TOCA PARA ABRIR EL PLANO",
+                                style: GoogleFonts.roboto(
+                                  color: _colorTextSecondary,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
@@ -675,12 +753,21 @@ class _ChequeosPageState extends State<ChequeosPage> {
     return Scaffold(
       backgroundColor: _colorBg,
       appBar: AppBar(
-        backgroundColor: _colorSurface.withOpacity(0.92),
+        backgroundColor: _colorSurface.withOpacity(0.95),
         elevation: 0,
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: _colorBorder, height: 1.0),
+        ),
         title: Text(
-          "PLANILLA DE AUDITORÍA",
-          style: GoogleFonts.roboto(color: _colorText, fontSize: 14, fontWeight: FontWeight.w800),
+          "AUDITORÍA OPERATIVA",
+          style: GoogleFonts.roboto(
+            color: _colorText,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
         ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_new_rounded, color: _colorAccent, size: 18),
@@ -688,11 +775,16 @@ class _ChequeosPageState extends State<ChequeosPage> {
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: _colorAccent))
+          ? Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: _colorAccent,
+              ),
+            )
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
                 children: [
                   _buildSeccionTitulo("1. INFORMACIÓN DE LA UNIDAD"),
                   const SizedBox(height: 10),
@@ -701,26 +793,36 @@ class _ChequeosPageState extends State<ChequeosPage> {
                     _buildFichaResumenUnidad()
                   else ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
                       decoration: BoxDecoration(
                         color: _colorSurface,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: _colorBorder, width: 1.2),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButtonFormField<String>(
                           dropdownColor: _colorSurface,
-                          hint: Text("Elegir un móvil del cuartel...", style: GoogleFonts.roboto(color: _colorTextSecondary, fontSize: 13)),
-                          value: _vehiculoElegidoInterno, 
+                          hint: Text(
+                            "Elegir un móvil del cuartel...",
+                            style: GoogleFonts.roboto(
+                              color: _colorTextSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          value: _vehiculoElegidoInterno,
                           isExpanded: true,
                           icon: Icon(Icons.keyboard_arrow_down_rounded, color: _colorAccent),
                           items: _listaVehiculosDropdown.map((vehiculo) {
                             final String intVal = (vehiculo['interno'] ?? '').toString();
                             return DropdownMenuItem<String>(
-                              value: intVal, 
+                              value: intVal,
                               child: Text(
                                 "INT $intVal - ${vehiculo['marca_modelo'] ?? vehiculo['marca']} (${vehiculo['dominio_patente'] ?? vehiculo['dominio']})",
-                                style: GoogleFonts.roboto(color: _colorText, fontSize: 13, fontWeight: FontWeight.w700),
+                                style: GoogleFonts.roboto(
+                                  color: _colorText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             );
                           }).toList(),
@@ -733,11 +835,28 @@ class _ChequeosPageState extends State<ChequeosPage> {
                                   orElse: () => {},
                                 );
                                 if (seleccionado.isNotEmpty) {
-                                  _internoController.text = (seleccionado['interno'] ?? '').toString();
-                                  _dominioController.text = (seleccionado['dominio_patente'] ?? seleccionado['dominio'] ?? '').toString();
-                                  _marcaController.text = (seleccionado['marca_modelo'] ?? seleccionado['marca'] ?? '').toString();
-                                  _unidadController.text = (seleccionado['tipo'] ?? seleccionado['tipo_unidad'] ?? '').toString();
-                                  _tipoUnidad = (seleccionado['tipo'] ?? seleccionado['tipo_unidad'] ?? 'OTROS').toString().toUpperCase();
+                                  _internoController.text =
+                                      (seleccionado['interno'] ?? '').toString();
+                                  _dominioController.text =
+                                      (seleccionado['dominio_patente'] ??
+                                              seleccionado['dominio'] ??
+                                              '')
+                                          .toString();
+                                  _marcaController.text =
+                                      (seleccionado['marca_modelo'] ??
+                                              seleccionado['marca'] ??
+                                              '')
+                                          .toString();
+                                  _unidadController.text =
+                                      (seleccionado['tipo'] ??
+                                              seleccionado['tipo_unidad'] ??
+                                              '')
+                                          .toString();
+                                  _tipoUnidad = (seleccionado['tipo'] ??
+                                          seleccionado['tipo_unidad'] ??
+                                          'OTROS')
+                                      .toString()
+                                      .toUpperCase();
                                 }
                               }
                             });
@@ -748,55 +867,106 @@ class _ChequeosPageState extends State<ChequeosPage> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: _buildInput(_internoController, "Interno *", Icons.tag_rounded, verdadero: true)),
+                        Expanded(
+                          child: _buildInput(
+                            _internoController,
+                            "Interno *",
+                            Icons.tag_rounded,
+                            verdadero: true,
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildInput(_dominioController, "Patente *", Icons.badge_rounded, verdadero: true)),
+                        Expanded(
+                          child: _buildInput(
+                            _dominioController,
+                            "Patente *",
+                            Icons.badge_rounded,
+                            verdadero: true,
+                          ),
+                        ),
                       ],
                     ),
                   ],
 
                   const SizedBox(height: 22),
-                  _buildSeccionTitulo("2. OPERACIÓN Y CONTROL"),
+                  _buildSeccionTitulo("2. OPERACIÓN Y CONDUCTOR"),
                   const SizedBox(height: 10),
-                  
+
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
                     decoration: BoxDecoration(
                       color: _colorSurface,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: _colorBorder, width: 1.2),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButtonFormField<String>(
                         dropdownColor: _colorSurface,
                         value: _conductorSeleccionado,
-                        hint: Text("Elegir Conductor *", style: GoogleFonts.roboto(color: _colorTextSecondary, fontSize: 13)),
+                        hint: Text(
+                          "Seleccionar Conductor *",
+                          style: GoogleFonts.roboto(
+                            color: _colorTextSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
                         items: _listaPersonalDropdown.map((p) {
-                          String nombre = (p['nombre_completo'] ?? p['operario'] ?? 'Sin Nombre').toString().toUpperCase();
+                          String nombre = (p['nombre_completo'] ??
+                                  p['operario'] ??
+                                  'Sin Nombre')
+                              .toString()
+                              .toUpperCase();
                           return DropdownMenuItem<String>(
                             value: nombre,
-                            child: Text(nombre, style: GoogleFonts.roboto(color: _colorText, fontSize: 13, fontWeight: FontWeight.w700)),
+                            child: Text(
+                              nombre,
+                              style: GoogleFonts.roboto(
+                                color: _colorText,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           );
                         }).toList(),
-                        onChanged: (val) => setState(() => _conductorSeleccionado = val),
-                        validator: (value) => value == null ? 'Conductor requerido' : null,
+                        onChanged: (val) =>
+                            setState(() => _conductorSeleccionado = val),
+                        validator: (value) =>
+                            value == null ? 'Conductor requerido' : null,
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 10),
-                  _buildInput(_inspeccionoController, "Inspección a cargo de *", Icons.verified_user_outlined, verdadero: true, bloquear: true),
+                  _buildInput(
+                    _inspeccionoController,
+                    "Inspector a cargo *",
+                    Icons.verified_user_outlined,
+                    verdadero: true,
+                    bloquear: true,
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildInput(_fechaProxServiceController, "Próx Service", Icons.calendar_today_rounded)),
+                      Expanded(
+                        child: _buildInput(
+                          _fechaProxServiceController,
+                          "Próx Service",
+                          Icons.calendar_today_rounded,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildInput(_obraBaseController, "Obra / Base", Icons.business_rounded)),
+                      Expanded(
+                        child: _buildInput(
+                          _obraBaseController,
+                          "Obra / Base",
+                          Icons.business_rounded,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 22),
 
-                  _buildSeccionTitulo("2.B CONTROL DE DOCUMENTACIÓN"),
+                  const SizedBox(height: 22),
+                  _buildSeccionTitulo("2.B DOCUMENTACIÓN OBLIGATORIA"),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -807,21 +977,36 @@ class _ChequeosPageState extends State<ChequeosPage> {
                     ),
                     child: Column(
                       children: [
-                        _buildDocSelectorRow("Tarjeta Verde", _tarjetaVerde, (val) => setState(() => _tarjetaVerde = val!)),
-                        _buildDocSelectorRow("Comprobante Patente", _comprobantePatente, (val) => setState(() => _comprobantePatente = val!)),
-                        _buildDocSelectorRow("Comprobante Seguro", _comprobanteSeguro, (val) => setState(() => _comprobanteSeguro = val!)),
-                        _buildDocSelectorRow("Cédula Transporte", _cedulaTransporte, (val) => setState(() => _cedulaTransporte = val!)),
-                        _buildDocSelectorRow("Verificación Técnica", _verificacionTec, (val) => setState(() => _verificacionTec = val!)),
-                        _buildDocSelectorRow("Documentación Chofer", _docChofer, (val) => setState(() => _docChofer = val!)),
-                        const SizedBox(height: 6),
-                        _buildInput(_fechaVtoMatafuegoController, "Vto. Matafuego", Icons.gavel_rounded),
+                        _buildDocSelectorRow("Tarjeta Verde", _tarjetaVerde,
+                            (val) => setState(() => _tarjetaVerde = val!)),
+                        _buildDocSelectorRow("Comprobante Patente",
+                            _comprobantePatente,
+                            (val) => setState(() => _comprobantePatente = val!)),
+                        _buildDocSelectorRow("Comprobante Seguro",
+                            _comprobanteSeguro,
+                            (val) => setState(() => _comprobanteSeguro = val!)),
+                        _buildDocSelectorRow("Cédula Transporte",
+                            _cedulaTransporte,
+                            (val) => setState(() => _cedulaTransporte = val!)),
+                        _buildDocSelectorRow("Verificación Técnica",
+                            _verificacionTec,
+                            (val) => setState(() => _verificacionTec = val!)),
+                        _buildDocSelectorRow("Documentación Chofer",
+                            _docChofer,
+                            (val) => setState(() => _docChofer = val!)),
+                        const SizedBox(height: 8),
+                        _buildInput(
+                          _fechaVtoMatafuegoController,
+                          "Vto. Matafuego (AAAA-MM-DD)",
+                          Icons.gavel_rounded,
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 22),
 
+                  const SizedBox(height: 22),
                   _buildSeccionChequeoVisual(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
 
                   _buildSeccionTitulo("3. MATRIZ OPERATIVA (${itemsFiltrados.length} ÍTEMS)"),
                   const SizedBox(height: 10),
@@ -829,8 +1014,8 @@ class _ChequeosPageState extends State<ChequeosPage> {
                   const SizedBox(height: 12),
 
                   ...itemsFiltrados.map((item) => _buildItemMatrizEstructuralRow(item)),
-                  const SizedBox(height: 22),
 
+                  const SizedBox(height: 22),
                   _buildSeccionTitulo("4. OBSERVACIONES GENERALES"),
                   const SizedBox(height: 10),
                   Container(
@@ -843,25 +1028,50 @@ class _ChequeosPageState extends State<ChequeosPage> {
                       controller: _observacionesController,
                       maxLines: 3,
                       style: GoogleFonts.roboto(color: _colorText, fontSize: 13),
-                      decoration: const InputDecoration(
-                        hintText: "Observaciones mecánicas...",
+                      decoration: InputDecoration(
+                        hintText: "Escribí aquí novedades mecánicas o del equipamiento...",
+                        hintStyle: GoogleFonts.roboto(
+                          color: _colorTextSecondary.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.all(14),
+                        contentPadding: const EdgeInsets.all(14),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
 
-                  ElevatedButton(
-                    onPressed: _guardarChecklistLocal,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _colorAccent,
-                      minimumSize: const Size(double.infinity, 54),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    ),
-                    child: Text(
-                      "GUARDAR AUDITORÍA",
-                      style: GoogleFonts.roboto(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  const SizedBox(height: 26),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _guardarChecklistLocal,
+                      borderRadius: BorderRadius.circular(18),
+                      splashColor: const Color(0xFFFFFDE7),
+                      highlightColor: const Color(0xFFFBC02D).withOpacity(0.2),
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: _colorAccent,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _colorAccent.withOpacity(0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          "GUARDAR AUDITORÍA",
+                          style: GoogleFonts.roboto(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -874,11 +1084,22 @@ class _ChequeosPageState extends State<ChequeosPage> {
   Widget _buildSeccionTitulo(String titulo) {
     return Text(
       titulo.toUpperCase(),
-      style: GoogleFonts.roboto(color: _colorTextSecondary, fontSize: 11, fontWeight: FontWeight.w800),
+      style: GoogleFonts.roboto(
+        color: _colorTextSecondary,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.6,
+      ),
     );
   }
 
-  Widget _buildInput(TextEditingController controller, String label, IconData icono, {bool verdadero = false, bool bloquear = false}) {
+  Widget _buildInput(
+    TextEditingController controller,
+    String label,
+    IconData icono, {
+    bool verdadero = false,
+    bool bloquear = false,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: bloquear ? _colorBg : _colorSurface,
@@ -887,83 +1108,200 @@ class _ChequeosPageState extends State<ChequeosPage> {
       ),
       child: TextFormField(
         controller: controller,
-        enabled: !bloquear, 
-        style: GoogleFonts.roboto(color: _colorText, fontSize: 12.5, fontWeight: FontWeight.w700),
+        enabled: !bloquear,
+        style: GoogleFonts.roboto(
+          color: _colorText,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
         validator: verdadero ? (value) => value!.isEmpty ? 'Requerido' : null : null,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: GoogleFonts.roboto(color: _colorTextSecondary, fontSize: 11),
           prefixIcon: Icon(icono, color: _colorAccent, size: 16),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         ),
       ),
     );
   }
 
-  Widget _buildDocSelectorRow(String titulo, String valorActual, ValueChanged<String?> alCambiar) {
+  Widget _buildDocSelectorRow(
+      String titulo, String valorActual, ValueChanged<String?> alCambiar) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(titulo, style: GoogleFonts.roboto(color: _colorText, fontSize: 12, fontWeight: FontWeight.w700)),
-          DropdownButton<String>(
-            value: valorActual,
-            items: ['SI', 'NO', 'NA'].map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
-            onChanged: alCambiar,
+          Text(
+            titulo,
+            style: GoogleFonts.roboto(
+              color: _colorText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _colorBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _colorBorder, width: 1.0),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: valorActual,
+                dropdownColor: _colorSurface,
+                style: GoogleFonts.roboto(
+                  color: _colorAccentDark,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+                items: ['SI', 'NO', 'NA']
+                    .map((opt) => DropdownMenuItem(value: opt, child: Text(opt)))
+                    .toList(),
+                onChanged: alCambiar,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  // ACA ES LO NUEVO: Fila de matriz operativa con selector circular interactivo
   Widget _buildItemMatrizEstructuralRow(Map<String, dynamic> item) {
     int id = item['id'];
     String desc = item['desc'];
     String? currentEstado = _respuestasItems[id]?['estado'];
+    bool respondido = currentEstado != null;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _colorSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: currentEstado != null ? _colorSuccess : _colorBorder),
+        border: Border.all(
+          color: respondido ? _colorSuccess.withOpacity(0.5) : _colorBorder,
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              SizedBox(
-                width: 35,
-                child: Text("$id", style: GoogleFonts.roboto(color: _colorAccent, fontWeight: FontWeight.w900)),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: respondido ? _colorSuccess.withOpacity(0.12) : _colorBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  "$id",
+                  style: GoogleFonts.roboto(
+                    color: respondido ? _colorSuccess : _colorAccentDark,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                  ),
+                ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 flex: 3,
-                child: Text(desc, style: GoogleFonts.roboto(color: _colorText, fontSize: 12, fontWeight: FontWeight.w700)),
+                child: Text(
+                  desc,
+                  style: GoogleFonts.roboto(
+                    color: _colorText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-              Expanded(
-                flex: 2,
-                child: DropdownButton<String>(
-                  value: currentEstado,
-                  hint: const Text("-"),
-                  isExpanded: true,
-                  items: _referencias.map((ref) => DropdownMenuItem(value: ref, child: Text(ref))).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _respuestasItems[id]?['estado'] = val);
-                    }
-                  },
+              const SizedBox(width: 8),
+              Container(
+                width: 72,
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: _colorBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _colorBorder, width: 1.0),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: currentEstado,
+                    dropdownColor: _colorSurface,
+                    hint: Center(
+                      child: Text(
+                        "-",
+                        style: GoogleFonts.roboto(
+                          color: _colorTextSecondary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    isExpanded: true,
+                    items: _referencias
+                        .map((ref) => DropdownMenuItem(
+                              value: ref,
+                              child: Center(
+                                child: Text(
+                                  ref,
+                                  style: GoogleFonts.roboto(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                    color: _colorAccentDark,
+                                  ),
+                                ),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _respuestasItems[id]?['estado'] = val);
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
           ),
-          TextFormField(
-            initialValue: _respuestasItems[id]?['control'] ?? '',
-            onChanged: (val) => _respuestasItems[id]?['control'] = val,
-            style: GoogleFonts.roboto(fontSize: 11.5),
-            decoration: const InputDecoration(hintText: "Observación..."),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _colorBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TextFormField(
+              initialValue: _respuestasItems[id]?['control'] ?? '',
+              onChanged: (val) => _respuestasItems[id]?['control'] = val,
+              style: GoogleFonts.roboto(
+                fontSize: 11.5,
+                color: _colorText,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: InputDecoration(
+                hintText: "Observación o detalle...",
+                hintStyle: GoogleFonts.roboto(
+                  color: _colorTextSecondary.withOpacity(0.6),
+                  fontSize: 11,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
           ),
         ],
       ),
