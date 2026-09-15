@@ -1,9 +1,11 @@
 // ESTO LO MODIFIQUE
 // ignore_for_file: unused_local_variable
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../base.dart'; 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -44,9 +46,6 @@ class _ReportesPageState extends State<ReportesPage> {
     {'valor': '12', 'nombre': 'DICIEMBRE'},
   ];
 
-  // ===========================================================================
-  // PALETA APPLE SOFT LIGHT - FORMATO INSTITUCIONAL CSS
-  // ===========================================================================
   final Color _colorBg = const Color(0xFFF3F5F1);
   final Color _colorSurface = const Color(0xFFFFFFFF);
   final Color _colorText = const Color(0xFF1B231D);
@@ -54,8 +53,6 @@ class _ReportesPageState extends State<ReportesPage> {
   final Color _colorAccent = const Color(0xFF1E6B4C);
   final Color _colorAccentDark = const Color(0xFF123F2C);
   final Color _colorAccentSoft = const Color(0x1A1E6B4C); 
-  final Color _colorGoldSoft = const Color(0x24B8862A);   
-  final Color _colorGoldText = const Color(0xFF8A6A1E);
   final Color _colorBorder = const Color(0x1A1B231D);     
 
   @override
@@ -64,61 +61,109 @@ class _ReportesPageState extends State<ReportesPage> {
     _cargarHistorialReportes();
   }
 
+  // ACA ES LO NUEVO: Consulta adaptada a Supabase directo en Web para evitar crasheos de SQLite
   Future<void> _cargarHistorialReportes() async {
     setState(() => _isLoading = true);
-    final db = await _dbHelper.db;
 
-    String query = '''
-      SELECT id, interno, dominio, marca, unidad, tipo_unidad, fecha, utilizado_por, inspecciono, obra_base, reg_local, fecha_vto,
-             tarjeta_verde, comprobante_patente, comprobante_seguro, cedula_transporte, verificacion_tec, doc_chofer,
-             MIN(estado) as estado_global
-      FROM chequeos_vehicular WHERE 1=1
-    ''';
+    try {
+      List<Map<String, dynamic>> lista = [];
 
-    if (widget.userRol.toUpperCase() != 'ADMIN') {
-      query += " AND UPPER(inspecciono) = '${widget.userNombre.toUpperCase()}'";
-    }
+      if (kIsWeb) {
+        var query = Supabase.instance.client
+            .from('chequeos_vehicular')
+            .select();
 
-    final String fechaHoy = DateTime.now().toString().substring(0, 10);
-    if (_filtroPeriodo == 'HOY') {
-      query += " AND fecha = '$fechaHoy'";
-    } else if (_filtroPeriodo == 'SEMANA') {
-      query += " AND fecha >= '${DateTime.now().subtract(const Duration(days: 7)).toString().substring(0, 10)}'";
-    } else if (_filtroPeriodo == 'MES') {
-      query += " AND fecha >= '${DateTime.now().subtract(const Duration(days: 30)).toString().substring(0, 10)}'";
-    }
+        if (widget.userRol.toUpperCase() != 'ADMIN') {
+          query = query.ilike('inspecciono', widget.userNombre.trim());
+        }
 
-    if (_mesSeleccionado != 'TODOS') {
-      query += " AND substr(fecha, 6, 2) = '$_mesSeleccionado'";
-    }
+        final res = await query.order('fecha', ascending: false);
 
-    query += " GROUP BY reg_local ORDER BY fecha DESC, id DESC";
-    final List<Map<String, dynamic>> res = await db.rawQuery(query);
+        // Agrupamos en memoria por reg_local para obtener cabeceras únicas sin subqueries rotas
+        Map<String, Map<String, dynamic>> agrupados = {};
+        for (var fila in res) {
+          String reg = fila['reg_local']?.toString() ?? fila['id'].toString();
+          if (!agrupados.containsKey(reg)) {
+            agrupados[reg] = Map<String, dynamic>.from(fila);
+          }
+        }
+        lista = agrupados.values.toList();
+      } else {
+        final db = await _dbHelper.db;
+        String query = '''
+          SELECT id, interno, dominio, marca, unidad, tipo_unidad, fecha, utilizado_por, inspecciono, obra_base, reg_local, fecha_vto,
+                 tarjeta_verde, comprobante_patente, comprobante_seguro, cedula_transporte, verificacion_tec, doc_chofer,
+                 MIN(estado) as estado_global
+          FROM chequeos_vehicular WHERE 1=1
+        ''';
 
-    setState(() {
-      if (_filtroTipo == 'TODOS') {
-        _auditoriasCabecera = res;
-      } else if (_filtroTipo == 'PESADO') {
-        _auditoriasCabecera = res.where((v) => (v['tipo_unidad'] ?? '').toString().toUpperCase() == 'PESADO').toList();
-      } else if (_filtroTipo == 'OTROS') {
-        _auditoriasCabecera = res.where((v) => (v['tipo_unidad'] ?? '').toString().toUpperCase() != 'PESADO').toList();
+        if (widget.userRol.toUpperCase() != 'ADMIN') {
+          query += " AND UPPER(inspecciono) = '${widget.userNombre.toUpperCase()}'";
+        }
+
+        query += " GROUP BY reg_local ORDER BY fecha DESC, id DESC";
+        lista = await db.rawQuery(query);
       }
-      _isLoading = false;
-    });
+
+      // Filtros de fecha en memoria
+      final String fechaHoy = DateTime.now().toString().substring(0, 10);
+      final String hace7Dias = DateTime.now().subtract(const Duration(days: 7)).toString().substring(0, 10);
+      final String hace30Dias = DateTime.now().subtract(const Duration(days: 30)).toString().substring(0, 10);
+
+      List<Map<String, dynamic>> filtrados = lista.where((item) {
+        String fecha = (item['fecha'] ?? '').toString();
+        if (_filtroPeriodo == 'HOY' && fecha != fechaHoy) return false;
+        if (_filtroPeriodo == 'SEMANA' && fecha.compareTo(hace7Dias) < 0) return false;
+        if (_filtroPeriodo == 'MES' && fecha.compareTo(hace30Dias) < 0) return false;
+
+        if (_mesSeleccionado != 'TODOS') {
+          if (fecha.length >= 7) {
+            String mes = fecha.substring(5, 7);
+            if (mes != _mesSeleccionado) return false;
+          } else {
+            return false;
+          }
+        }
+
+        if (_filtroTipo == 'PESADO') {
+          return (item['tipo_unidad'] ?? '').toString().toUpperCase() == 'PESADO';
+        } else if (_filtroTipo == 'OTROS') {
+          return (item['tipo_unidad'] ?? '').toString().toUpperCase() != 'PESADO';
+        }
+
+        return true;
+      }).toList();
+
+      setState(() {
+        _auditoriasCabecera = filtrados;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error cargando historial: $e");
+      setState(() => _isLoading = false);
+    }
   }
 
-  // ===========================================================================
-  // CONSTRUCTOR DEL DOCUMENTO PDF ESTRUCTURAL (2 PÁGINAS)
-  // ===========================================================================
+  // ACA ES LO NUEVO: Carga de ítems para PDF compatible con Web y Móvil
   Future<pw.Document> _construirDocumentoPdf(String regLocal, Map<String, dynamic> cabecera) async {
-    final db = await _dbHelper.db;
-    
-    final List<Map<String, dynamic>> items = await db.query(
-      'chequeos_vehicular', 
-      where: 'reg_local = ?', 
-      whereArgs: [regLocal], 
-      orderBy: 'id ASC'
-    );
+    List<Map<String, dynamic>> items = [];
+
+    if (kIsWeb) {
+      final res = await Supabase.instance.client
+          .from('chequeos_vehicular')
+          .select()
+          .eq('reg_local', regLocal)
+          .order('id', ascending: true);
+      items = List<Map<String, dynamic>>.from(res);
+    } else {
+      final db = await _dbHelper.db;
+      items = await db.query(
+        'chequeos_vehicular', 
+        where: 'reg_local = ?', 
+        whereArgs: [regLocal], 
+        orderBy: 'id ASC'
+      );
+    }
 
     final pdf = pw.Document();
     
@@ -145,18 +190,10 @@ class _ReportesPageState extends State<ReportesPage> {
       final ByteData data = await rootBundle.load('assets/logo/logo_cuartel.png');
       logoCuartelBytes = data.buffer.asUint8List();
     } catch (e) {
-      debugPrint("❌ Error cargando logo: $e");
+      debugPrint("Aviso al cargar logo en PDF: $e");
     }
 
-    Uint8List planoCatalogoBytes = Uint8List(0);
-    try {
-      final ByteData data = await rootBundle.load('assets/catalogo/catalogo.png');
-      planoCatalogoBytes = data.buffer.asUint8List();
-    } catch (e) {
-      debugPrint("❌ Error cargando plano: $e");
-    }
-
-    // HOJA 1: Cabecera, Metadatos y Matriz Operativa Espejo
+    // HOJA 1
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -200,9 +237,9 @@ class _ReportesPageState extends State<ReportesPage> {
 
               pw.Container(
                 padding: const pw.EdgeInsets.all(5),
-                decoration: pw.BoxDecoration(
+                decoration: const pw.BoxDecoration(
                   color: PdfColors.grey100, 
-                  border: const pw.Border(left: pw.BorderSide(color: azulInstitucional, width: 3)),
+                  border: pw.Border(left: pw.BorderSide(color: azulInstitucional, width: 3)),
                 ),
                 child: pw.Text(
                   "DECLARACIÓN JURADA DE ACTIVOS: El presente instrumento legal certifica la existencia, estado de conservación operativa y control de seguridad correspondiente a la unidad móvil de la dotación declarada.",
@@ -211,7 +248,6 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               pw.SizedBox(height: 8),
 
-              // Tabla de Metadatos
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
                 children: [
@@ -243,7 +279,6 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               pw.SizedBox(height: 6),
 
-              // Tabla de Documentación
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
                 children: [
@@ -265,7 +300,6 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               pw.SizedBox(height: 8),
 
-              // Matriz de ítems dividida en 2 columnas
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -339,7 +373,7 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
     );
 
-    // HOJA 2: Mapa de Daños y Firma Única
+    // HOJA 2
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -348,44 +382,6 @@ class _ReportesPageState extends State<ReportesPage> {
           const PdfColor azulInstitucional = PdfColor.fromInt(0xFF1E6B4C);
           var labelStyle = pw.TextStyle(fontSize: 6.5, color: azulInstitucional, fontWeight: pw.FontWeight.bold);
           
-          final double pdfWidth = 500.0;
-          final double pdfHeight = 140.0;
-
-          List<pw.Widget> stackDeDanos = [];
-          if (planoCatalogoBytes.isNotEmpty) {
-            stackDeDanos.add(
-              pw.Center(
-                child: pw.Image(pw.MemoryImage(planoCatalogoBytes), fit: pw.BoxFit.contain),
-              )
-            );
-
-            if (visualMapRaw.isNotEmpty) {
-              for (var puntoStr in visualMapRaw.split(';')) {
-                var coords = puntoStr.split(',');
-                if (coords.length == 2) {
-                  double? pctX = double.tryParse(coords[0]);
-                  double? pctY = double.tryParse(coords[1]);
-                  if (pctX != null && pctY != null) {
-                    stackDeDanos.add(
-                      pw.Positioned(
-                        left: (pctX * pdfWidth) - 3.5, 
-                        top: (pctY * pdfHeight) - 3.5,
-                        child: pw.Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const pw.BoxDecoration(
-                            color: PdfColors.red700,
-                            shape: pw.BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                }
-              }
-            }
-          }
-
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -403,27 +399,11 @@ class _ReportesPageState extends State<ReportesPage> {
               pw.Divider(thickness: 1, color: PdfColors.grey300),
               pw.SizedBox(height: 10),
 
-              pw.Text("ANEXO 3.B - MAPA REGISTRO VISUAL DE GOLPES Y RAYADURAS DETECTADAS", style: labelStyle),
-              pw.SizedBox(height: 6),
-              pw.Container(
-                height: pdfHeight,
-                width: pdfWidth,
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
-                  color: PdfColors.white,
-                ),
-                padding: const pw.EdgeInsets.all(8),
-                child: planoCatalogoBytes.isNotEmpty 
-                    ? pw.Stack(children: stackDeDanos)
-                    : pw.Center(child: pw.Text("SIN NOVEDADES VISUALES REGISTRADAS", style: const pw.TextStyle(fontSize: 7))),
-              ),
-              pw.SizedBox(height: 20),
-
               pw.Text("ANEXO 4 - OBSERVACIONES GENERALES Y REQUERIMIENTOS DE MANTENIMIENTO", style: labelStyle),
               pw.SizedBox(height: 6),
               pw.Container(
                 width: double.infinity,
-                height: 80,
+                height: 120,
                 padding: const pw.EdgeInsets.all(8),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
@@ -435,7 +415,7 @@ class _ReportesPageState extends State<ReportesPage> {
                 ),
               ),
               
-              pw.SizedBox(height: 100),
+              pw.SizedBox(height: 140),
 
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -477,9 +457,6 @@ class _ReportesPageState extends State<ReportesPage> {
     return pdf;
   }
 
-  // ===========================================================================
-  // MÉTODOS DE IMPRESIÓN Y COMPARTIR NATIVO
-  // ===========================================================================
   Future<void> _previsualizarEImprimirPdf(String regLocal, Map<String, dynamic> cabecera) async {
     final pdf = await _construirDocumentoPdf(regLocal, cabecera);
     await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
@@ -498,9 +475,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // ===========================================================================
-  // ACA ES LO NUEVO: Cuadro de diálogo modal estilo Apple para elegir acción
-  // ===========================================================================
   void _mostrarOpcionesExportacion(String regLocal, Map<String, dynamic> cabecera) {
     String internoSanitizado = (cabecera['interno'] ?? '-').toString().split('.')[0].trim();
 
@@ -550,7 +524,6 @@ class _ReportesPageState extends State<ReportesPage> {
               Divider(color: _colorBorder, thickness: 1.0, height: 1),
               const SizedBox(height: 10),
 
-              // Opción 1: Compartir PDF
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -559,8 +532,6 @@ class _ReportesPageState extends State<ReportesPage> {
                     _compartirPdfDirecto(regLocal, cabecera);
                   },
                   borderRadius: BorderRadius.circular(14),
-                  splashColor: const Color(0xFFFFFDE7),
-                  highlightColor: const Color(0xFFFBC02D).withOpacity(0.2),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -611,7 +582,6 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               const SizedBox(height: 10),
 
-              // Opción 2: Previsualizar e Imprimir
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -620,8 +590,6 @@ class _ReportesPageState extends State<ReportesPage> {
                     _previsualizarEImprimirPdf(regLocal, cabecera);
                   },
                   borderRadius: BorderRadius.circular(14),
-                  splashColor: const Color(0xFFFFFDE7),
-                  highlightColor: const Color(0xFFFBC02D).withOpacity(0.2),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -707,7 +675,6 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
       body: Column(
         children: [
-          // Selector de periodo
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
             child: Row(
@@ -724,8 +691,6 @@ class _ReportesPageState extends State<ReportesPage> {
                           _cargarHistorialReportes();
                         },
                         borderRadius: BorderRadius.circular(12),
-                        splashColor: const Color(0xFFFFFDE7),
-                        highlightColor: const Color(0xFFFBC02D).withOpacity(0.2),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
@@ -735,13 +700,6 @@ class _ReportesPageState extends State<ReportesPage> {
                               color: activo ? _colorAccent : _colorBorder,
                               width: 1.2,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF141E18).withOpacity(0.03),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -762,7 +720,6 @@ class _ReportesPageState extends State<ReportesPage> {
             ),
           ),
 
-          // Selector de mes
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 23.0, vertical: 6.0),
             child: Container(
@@ -771,13 +728,6 @@ class _ReportesPageState extends State<ReportesPage> {
                 color: _colorSurface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _colorBorder, width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF141E18).withOpacity(0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButtonFormField<String>(
@@ -811,7 +761,6 @@ class _ReportesPageState extends State<ReportesPage> {
             ),
           ),
 
-          // Listado
           Expanded(
             child: _isLoading
                 ? Center(child: CircularProgressIndicator(color: _colorAccent))
@@ -842,18 +791,12 @@ class _ReportesPageState extends State<ReportesPage> {
                               color: _colorSurface, 
                               borderRadius: BorderRadius.circular(20), 
                               border: Border.all(color: _colorBorder, width: 1.2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF141E18).withOpacity(0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                )
-                              ],
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Row(
                                 children: [
+                                  // Contenedor de imagen seguro con fallback de icono
                                   Container(
                                     width: 80, 
                                     height: 80,
@@ -864,16 +807,13 @@ class _ReportesPageState extends State<ReportesPage> {
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(14),
-                                      // ESTO LO MODIFIQUE: Ruta directa limpia
-child: Image.asset(
-  'assets/catalogo/$internoSanitizado.png', 
-  fit: BoxFit.cover,
-  errorBuilder: (c, e, s) => Icon(
-    Icons.fire_truck_rounded,
-    color: _colorAccent.withOpacity(0.4),
-    size: 34,
-  ),
-),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.fire_truck_rounded,
+                                          color: _colorAccent.withOpacity(0.4),
+                                          size: 34,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 14),
@@ -936,20 +876,11 @@ child: Image.asset(
                                           child: InkWell(
                                             onTap: () => _mostrarOpcionesExportacion(cab['reg_local'], cab),
                                             borderRadius: BorderRadius.circular(10),
-                                            splashColor: const Color(0xFFFFFDE7),
-                                            highlightColor: const Color(0xFFFBC02D).withOpacity(0.2),
                                             child: Container(
                                               height: 38,
                                               decoration: BoxDecoration(
                                                 color: _colorAccent,
                                                 borderRadius: BorderRadius.circular(10),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: _colorAccent.withOpacity(0.2),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
                                               ),
                                               alignment: Alignment.center,
                                               child: Row(
