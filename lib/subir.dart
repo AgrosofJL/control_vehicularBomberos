@@ -1,5 +1,5 @@
 // ESTO LO MODIFIQUE
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'base.dart';
 
@@ -10,13 +10,19 @@ class CargaSincronizada {
   Future<bool> subirChequeosASupabase() async {
     try {
       debugPrint("📤 Preparando subida de auditorías vehiculares a Supabase...");
-      final dbLocal = await _dbHelper.db;
 
+      // En entorno Web no hay transacciones locales pendientes en SQLite
+      if (kIsWeb) {
+        debugPrint("ℹ️ Entorno Web detectado: los chequeos se registran directamente en Supabase.");
+        return true;
+      }
+
+      final dbLocal = await _dbHelper.db;
       final List<Map<String, dynamic>> registrosLocales = await dbLocal.query('chequeos_vehicular');
 
       if (registrosLocales.isEmpty) {
         debugPrint("ℹ️ No hay registros locales pendientes de subir.");
-        return true; 
+        return true;
       }
 
       List<Map<String, dynamic>> loteSubida = [];

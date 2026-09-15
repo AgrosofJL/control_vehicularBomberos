@@ -11,6 +11,13 @@ class DescargaSincronizada {
   Future<bool> descargarTodoDesdeSupabase({required String rol}) async {
     try {
       debugPrint("🔄 Iniciando descarga de tablas maestras desde Supabase...");
+
+      // En la web no se ejecuta SQLite local; las vistas consultan Supabase directo
+      if (kIsWeb) {
+        debugPrint("✅ Entorno Web: catálogos activos vía HTTPS.");
+        return true;
+      }
+
       final dbLocal = await _dbHelper.db;
 
       // 1. DESCARGAR ÍTEMS DE CHEQUEO
@@ -28,7 +35,6 @@ class DescargaSincronizada {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        debugPrint("✅ items_chequeo guardados.");
       }
 
       // 2. DESCARGAR PERSONAL
@@ -63,7 +69,6 @@ class DescargaSincronizada {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        debugPrint("✅ personal guardado.");
       }
 
       // 3. DESCARGAR MAQUINARIA
@@ -92,7 +97,6 @@ class DescargaSincronizada {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        debugPrint("✅ maquinaria guardada.");
       }
 
       // 4. DESCARGAR USUARIOS
@@ -113,7 +117,6 @@ class DescargaSincronizada {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        debugPrint("✅ usuarios guardados.");
       }
 
       // 5. DESCARGAR HISTORIAL DE CHEQUEOS PREVIOS
@@ -152,9 +155,9 @@ class DescargaSincronizada {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        debugPrint("✅ chequeos_vehicular guardados.");
       }
 
+      debugPrint("✅ Descarga y guardado local completados.");
       return true;
     } catch (e) {
       debugPrint("❌ Error crítico bajando datos de Supabase: $e");
