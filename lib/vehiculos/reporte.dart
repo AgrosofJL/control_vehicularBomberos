@@ -864,15 +864,16 @@ class _ReportesPageState extends State<ReportesPage> {
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(14),
-                                      child: Image.asset(
-                                        'assets/catalogo/catalogo/$internoSanitizado.png', 
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (c, e, s) => Icon(
-                                          Icons.fire_truck_rounded,
-                                          color: _colorAccent.withOpacity(0.4),
-                                          size: 34,
-                                        ),
-                                      ),
+                                      // ESTO LO MODIFIQUE: Ruta directa limpia
+child: Image.asset(
+  'assets/catalogo/$internoSanitizado.png', 
+  fit: BoxFit.cover,
+  errorBuilder: (c, e, s) => Icon(
+    Icons.fire_truck_rounded,
+    color: _colorAccent.withOpacity(0.4),
+    size: 34,
+  ),
+),
                                     ),
                                   ),
                                   const SizedBox(width: 14),

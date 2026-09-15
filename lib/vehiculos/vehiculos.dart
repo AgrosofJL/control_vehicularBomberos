@@ -223,17 +223,18 @@ class _VehiculosPageState extends State<VehiculosPage> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(
-                      'assets/catalogo/catalogo/$internoSanitizado.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => Center(
-                        child: Icon(
-                          Icons.fire_truck_rounded,
-                          color: _colorAccent.withOpacity(0.4),
-                          size: 30,
-                        ),
-                      ),
-                    ),
+                    // ESTO LO MODIFIQUE: Ruta directa limpia
+child: Image.asset(
+  'assets/catalogo/$internoSanitizado.png',
+  fit: BoxFit.cover,
+  errorBuilder: (c, e, s) => Center(
+    child: Icon(
+      Icons.fire_truck_rounded,
+      color: _colorAccent.withOpacity(0.4),
+      size: 30,
+    ),
+  ),
+),
                   ),
                 ),
                 const SizedBox(width: 14),
